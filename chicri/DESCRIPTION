@@ -1,0 +1,13 @@
+Package: chicri
+Type: Package
+Title: Chicago Crime Data Analysis
+Version: 0.1.0
+Author: Rahil Morjaria, Codie Wood, Rachel Wood
+Maintainer: Codie Wood <codie.wood@bristol.ac.uk>
+Description: Analysis tools for the Chicago crime dataset.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
