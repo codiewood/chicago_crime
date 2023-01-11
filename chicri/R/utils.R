@@ -12,6 +12,7 @@ load_crimes <- function(filepath){
   if (grepl("raw", filepath)) {
     stop("Please ensure the file specified contains processed data.")
   }
+  message("Loading processed data...")
   data <- read_csv(filepath) %>%
     type_convert(col_types = list(`Primary Type` = col_factor(),
                                   `Location Description` = col_factor(),
