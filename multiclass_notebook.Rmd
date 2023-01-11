@@ -1,0 +1,89 @@
+---
+title: "Multiclass Lab Notebook"
+author: "Codie Wood"
+date: "2023-01-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Multi-class Classification: Predicting the type of a reported crime, given other information about the crime. We consider using multinomial logistic regression.
+
+```{r}
+require(nnet) # For multinomial regression
+require(tidyverse)
+require(ggplot2)
+require(caret) # Create data partitions
+source("chicri/R/multiclass_classification.R")
+source("chicri/R/utils.R")
+theme_set(theme_bw())
+```
+
+
+```{r}
+dat <- load_crimes("chicri/data/processed/Crimes_2019_Location_Type.csv")
+set.seed(1)
+smp <- sample(nrow(dat), 200000, replace=FALSE)
+dat_train <- dat[smp,]
+dat_test <- dat[-smp,]
+```
+
+```{r}
+mnlr <- multinom(`Primary Type` ~ Arrest + Domestic + District, data=dat_train)
+#output <- summary(mnlr)
+```
+
+```{r}
+z <- summary(mnlr)$coefficients/summary(mnlr)$standard.errors
+z
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+p < 0.001 #Significant variables
+```
+
+```{r}
+head(pp <- fitted(mnlr)) #Predictive probabilities
+```
+
+
+```{r}
+newdata <- dat_test %>%
+  head() %>%
+  select(c(Arrest,Domestic,District))
+predict(object=mnlr, newdata=newdata, type="prob")
+predict(object=mnlr, newdata=newdata, type="class")
+head(dat_test)$`Primary Type`
+```
+
+```{r}
+confusion <- table(Predicted=predict(mnlr,dat_train, type="class"),
+                   Actual=dat_train$`Primary Type`)
+confusion <- confusion %>%
+  as.data.frame() %>%
+  mutate(Prop = Freq / nrow(dat_train))
+```
+
+
+```{r}
+ggplot(confusion, aes(x=Actual, y = Predicted, fill=Prop)) +
+  coord_equal() +
+  geom_tile() +
+  labs(title = "Prediction distribution") +
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
+  geom_text(aes(label=Freq), color="black") # printing values
+```
+
+
+```{r}
+test.data <- dat_test %>% select(c(Arrest,Domestic,District))
+# Make predictions
+predicted.classes <- mnlr %>% predict(test.data)
+head(predicted.classes)
+# Model accuracy
+mean(predicted.classes == dat_test$`Primary Type`)
+```
+
+
