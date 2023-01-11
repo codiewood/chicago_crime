@@ -1,10 +1,6 @@
-library(tidyr)
-library(dplyr)
-library(lubridate)
-library(forcats)
-library(stringr)
-library(readr)
-
+# Script containing data processing
+require(tidyverse)
+require(lubridate)
 
 data_all <- read_csv("data/raw/Crimes_-_2019.csv")
 
@@ -22,4 +18,4 @@ data <- data %>%
 
 data$`Primary Type` <- fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
 
-write_csv(data,"data/processed/Crimes_2019_Location_Type")
+write_csv(data,"data/processed/Crimes_2019_Location_Type.csv")
