@@ -18,4 +18,4 @@ data <- data %>%
 
 data$`Primary Type` <- fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
 
-write_csv(data,"data/processed/Crimes_2019_Location_Type")
+write_csv(data,"data/processed/Crimes_2019_Location_Type.csv")
