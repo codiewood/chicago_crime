@@ -1,4 +1,4 @@
-test_that("load_crimes", {
+test_that("load_crimes works", {
   expect_error(load_crimes(0))
   expect_error(load_crimes("invalid_file_path"))
   expect_error(load_crimes("data/raw/Crimes_-_2019.csv"))
