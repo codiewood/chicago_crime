@@ -19,3 +19,19 @@ load_crimes <- function(filepath){
                                   District = col_factor()))
   return(data)
 }
+
+#' Convert less common levels to "OTHER", to be used when `Primary Type` or `Location Description` is present to reduce category numbers.
+#'
+#' @param factor_vec Factor vector to be otherised.
+#' @param threshold Threshold count below which will be converted to other.
+#'
+#' @return Otherised factor vector
+#' @export
+othering <- function(factor_vec, threshold){
+    level <- levels(factor_vec)
+    tab <- tabulate(factor_vec)
+    other.levels <- level[tab < threshold]
+    factor_vec <- fct_collapse(factor_vec, "OTHER" = other.levels)
+    return(factor_vec)
+}
+
