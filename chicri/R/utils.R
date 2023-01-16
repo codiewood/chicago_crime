@@ -24,14 +24,22 @@ load_crimes <- function(filepath){
 #'
 #' @param factor_vec Factor vector to be otherised.
 #' @param threshold Threshold count below which will be converted to other.
+#' @param print_summary Boolean indicating if a summary of the operations should be printed. Default is FALSE.
 #'
 #' @return Otherised factor vector
 #' @export
-othering <- function(factor_vec, threshold){
+othering <- function(factor_vec, threshold, print_summary = F){
     level <- levels(factor_vec)
     tab <- tabulate(factor_vec)
     other.levels <- level[tab < threshold]
     factor_vec <- fct_collapse(factor_vec, "OTHER" = other.levels)
+    if (print_summary){
+      cat(paste0(length(other.levels), " out of ", length(tab),
+                 " categories converted to OTHER, ",
+                 round(100 * length(factor_vec[factor_vec == "OTHER"]) / length(factor_vec),
+                       digits = 2),
+                 "% of data values. \n"))
+    }
     return(factor_vec)
 }
 
