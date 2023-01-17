@@ -1,0 +1,62 @@
+---
+title: Rachel section
+author: Rachel
+date: 
+output: pdf_document
+---
+# Regression on Spatial Data
+
+## Overview of Data
+
+Chicago has 77 neighbourhoods, which are called community areas. We can use the `read.socrata()` function to obtain the map of community areas from the Chicago Data Portal in the form of shapefiles:
+
+```{r}
+library(tidyverse)
+library(RSocrata)
+library(sf)
+community_map <- read.socrata("https://data.cityofchicago.org/resource/igwz-8jzy.csv")
+community_map <- community_map %>% select(c(the_geom, area = area_numbe)) %>% st_as_sf(wkt = "the_geom")
+```
+
+We can also obtain a record of 3 socio-economic indicators for each of the community areas for the years 2007-2011
+```{r}
+socio_ind <- read.socrata("https://data.cityofchicago.org/resource/i9hv-en6g.csv")
+socio_ind <- socio_ind %>% select(-c(community_area_name))
+head(socio_ind)
+```
+We can see there are 3 socio-economic indicators provided for each community area:
+
+- `percent_households_below_poverty`: Percentage of households living the federal poverty line
+- `per_capita_income_`: This is an estimation, calculated by aggregating incomes and dividing by the total population
+- `hardship_index`: A score from 1-100 (a higher score indicates a greater level of hardship), incorporating 6 socio-economic indicators. More information on how this is calculated can be found in \textbf{REVISIT}
+ 
+We now plot the map of chicago with respect to these indicators:
+```{r}
+
+library(gridExtra)
+community_info <- left_join(community_map, socio_ind, by = c("area" = "ca"))
+
+poverty_plot <- plot_map(data = community_info, variable = "percent_households_below_poverty", 
+                         legend.title = "Households \n in \n Poverty \n (%)", trans = "reverse")
+
+income_plot <- plot_map(data = community_info, variable = "per_capita_income_", 
+                         legend.title = "Per Capita \n Income ($)")
+
+hardship_plot <- plot_map(data = community_info, variable = "hardship_index", 
+                         legend.title = "Hardship \n Index", trans = "reverse")
+
+grid.arrange(poverty_plot, income_plot, hardship_plot, nrow = 1)
+```
+
+## Regression In Time
+
+
+
+```{r}
+complaints <- read.socrata("https://data.cityofchicago.org/resource/mft5-nfa8.csv")
+
+
+data_API <- data_API %>% filter(year(date ) <= 2019)
+complaints <- data_API 
+
+```
