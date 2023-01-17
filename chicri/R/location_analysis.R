@@ -1,3 +1,8 @@
+# Script containing functions for location analysis
+#'
+#' @import tidyverse
+#' @import sf
+NULL
 
 #' Producing a heatmap based on a variable
 #'
@@ -11,10 +16,6 @@
 #' @import ggplot2 sf
 #'
 #' @export
-#'
-#' @examples
-#'
-#'
 plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){
   ggplot() +
     geom_sf(data = data, aes(fill = get(variable))) +
@@ -33,10 +34,6 @@ plot_heat_map <- function(data, variable, legend.title = variable ,trans = "iden
 #' @import ggplot2 sf
 #'
 #' @export
-#'
-#' @examples
-#'
-#'
 plot_heat_map_d <- function(data, variable, legend.title = variable){
   ggplot() +
     geom_sf(data = data, aes(fill = as.factor(get(variable)))) +
