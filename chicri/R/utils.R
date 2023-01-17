@@ -1,6 +1,64 @@
-# Script containing general purpose utility functions
-require(tidyverse)
-require(lubridate)
+#' Script containing general purpose utility functions
+require(tidyverse) #For pipes dplyr etc
+require(lubridate) #For date processing
+require(RSocrata) #For data loading
+
+#TODO: this should mimic the data processing R script and convert into tibble format
+#' Title
+#'
+#' @param data Data set downloaded using
+#'
+#' @return
+#' @export
+#'
+#' @examples
+process_data <- function(data){
+
+}
+
+#' Renames data variable names to long format from short
+#'
+#' @param data The data set with the variables to be renamed
+#'
+#' @return data frame with long variable names
+#' @export
+#'
+#' @examples
+long_variables <- function(data){
+  short_names <- colnames(data)
+  var_lkp <- read.table("data/raw/feature_names.csv", header = T, sep = ",")
+  colnames(data) <- var_lkp$long_name[match(short_names, var_lkp$short_name)]
+  return(data)
+}
+
+#' Renames data variable names to short format from long
+#'
+#' @param data The data set with the variables to be renamed
+#'
+#' @return data frame with short variable names
+#' @export
+#'
+#' @examples
+short_variables <- function(data){
+  long_names <- colnames(data)
+  var_lkp <- read.table("data/raw/feature_names.csv", header = T, sep = ",")
+  colnames(data) <- var_lkp$short_name[match(long_names, var_lkp$long_name)]
+  return(data)
+}
+
+#' Load chicago crime data using Socrata API.
+#'
+#' @description
+#' Returns a data frame of Chicago Crime data from specified year or range of years,
+#' or returns entire dataset from 2001 to present if no years are specified.
+#'
+#' @param filepath path to the processed csv file.
+#'
+#' @return tibble data frame of Chicago Crime data.
+#' @export
+load_crimes_API <- function(){
+  #at some point call process_data, maybe make this an option
+}
 
 #' Load chicago crime data from processed csv.
 #'
@@ -8,7 +66,7 @@ require(lubridate)
 #'
 #' @return tibble data frame of Chicago Crime data.
 #' @export
-load_crimes <- function(filepath){
+load_crimes_csv <- function(filepath){
   if (grepl("raw", filepath)) {
     stop("Please ensure the file specified contains processed data.")
   }
@@ -28,7 +86,7 @@ load_crimes <- function(filepath){
 #'
 #' @return Otherised factor vector
 #' @export
-othering <- function(factor_vec, threshold, print_summary = F){
+othering <- function(factor_vec, threshold, print_summary = FALSE){
     level <- levels(factor_vec)
     tab <- tabulate(factor_vec)
     other.levels <- level[tab < threshold]
