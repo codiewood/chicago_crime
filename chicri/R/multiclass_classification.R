@@ -15,8 +15,6 @@ NULL
 #'
 #' @return list containing z statistics, p values and indicators of significance.
 #' @export
-#'
-#' @examples
 significance_test <- function(model,alpha = 0.05){
   z <- summary(model)$coefficients/summary(model)$standard.errors
   p <- (1 - pnorm(abs(z), 0, 1)) * 2
@@ -31,8 +29,6 @@ significance_test <- function(model,alpha = 0.05){
 #'
 #' @return Data frame with modified factor
 #' @export
-#'
-#' @examples
 regroup_locations <- function(data, threshold){
   locations <- levels(data$`Location Description`)
   school <- locations[grepl("SCHOOL", locations)]
@@ -51,7 +47,7 @@ regroup_locations <- function(data, threshold){
 #' Indexed cross-validation for multinomial regression
 #'
 #' @description
-#'
+#' Performs cross-validation computing metrics using specified indexes of the data set.
 #'
 #' @param X Data to be used, not including the response variable or any variables not for use in model.
 #' @param y Response variable, as a factor.

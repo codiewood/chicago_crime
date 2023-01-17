@@ -1,17 +1,17 @@
-#' Script containing general purpose utility functions
-require(tidyverse) #For pipes dplyr etc
-require(lubridate) #For date processing
-require(RSocrata) #For data loading
+# Script containing general purpose utility functions
+#'
+#' @import tidyverse
+#' @import lubridate
+#' @import RSocrata
+NULL
 
 #TODO: this should mimic the data processing R script and convert into tibble format
 #' Title
 #'
-#' @param data Data set downloaded using
+#' @param data Data set downloaded using API
 #'
-#' @return
+#' @return Processed data
 #' @export
-#'
-#' @examples
 process_data <- function(data){
 
 }
@@ -22,8 +22,6 @@ process_data <- function(data){
 #'
 #' @return data frame with long variable names
 #' @export
-#'
-#' @examples
 long_variables <- function(data){
   short_names <- colnames(data)
   var_lkp <- read.table("data/raw/feature_names.csv", header = T, sep = ",")
@@ -37,8 +35,6 @@ long_variables <- function(data){
 #'
 #' @return data frame with short variable names
 #' @export
-#'
-#' @examples
 short_variables <- function(data){
   long_names <- colnames(data)
   var_lkp <- read.table("data/raw/feature_names.csv", header = T, sep = ",")
