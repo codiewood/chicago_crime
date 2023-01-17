@@ -12,42 +12,52 @@ knitr::opts_chunk$set(echo = TRUE)
 # Multi-class Classification
 
 ```{r, include = FALSE}
-# Clear work environment
+# Clear work environment to reset from previous sections
 rm(list = ls())
 ```
 
 In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We will focus here on the method of multinomial logistic regression.
 
+Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
+
 ```{r}
 #wont need this when loading package
 require(nnet) # For multinomial regression
-require(tidyverse)
-require(ggplot2)
-require(sf)
+require(tidyverse) # For data manip
+require(ggplot2) # For plots
+require(sf) # For spatial plots
+
+#shouldnt need below when package sorted
 source("chicri/R/multiclass_classification.R")
 source("chicri/R/utils.R")
 source("chicri/R/location_analysis.R")
 theme_set(theme_bw())
 ```
 
-## Data Pre-Processing
+## Feature Selection
+
+Due to the extremely large size of the full data set, it computationally intensive to download, store and use to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019.
 
 ```{r}
-dat <- load_crimes("chicri/data/processed/Crimes_2019_Location_Type.csv")
-# Reorders type factor for plotting
-dat$`Primary Type` <- fct_infreq(dat$`Primary Type`) %>% fct_rev()
+dat <- load_crimes_csv("chicri/data/processed/Crimes_2019_Location_Type.csv")
+# Replace this with API stuff
 ```
+
+As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task. In order to do this we incorporating information from conduct exploratory data analysis, as well as considering computational cost.
 
 ### Primary Type
 
 ```{r}
+# Reorders type factor for plotting
+dat$`Primary Type` <- fct_infreq(dat$`Primary Type`) %>% fct_rev()
+
 thr <- 1000 # set threshold for othering
 ggplot(dat) +
   geom_bar(aes(y = `Primary Type`)) +
   geom_vline(xintercept=thr, colour="red")
 ```
 
-We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our response variable, with 7.57% of data values in the OTHER category.
+We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our response variable, with 7.57% of data values in the OTHER category.
 
 ```{r}
 dat$`Primary Type` <- fct_recode(dat$`Primary Type`,"OTHER" = "OTHER OFFENSE") %>%
@@ -61,7 +71,7 @@ ggplot(dat) +
 
 ### Location Description
 
-We also wish to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. We begin by manually merging some of the levels. BEEP hunker down on this BEEP
+We also wish to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. We begin by manually merging some of the levels. Namely, we merge BEEP hunker down on this BEEP
 check what other function combines?
 what is dif between sidewalk and street
 look for levels which are same but dif spacing
@@ -89,7 +99,22 @@ BEEP
 
 ### District
 
-In order to include spatial information, we consider the District variable. We observe that all districts experience reasonable numbers of crimes to be incorporated into analysis, with the exception of District 031. This district is made up of multiple different areas, as can be seen in BEEP plot BEEP. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
+```{r}
+# Loading mapping data for plots
+district_map <- read.socrata("https://data.cityofchicago.org/resource/24zt-jpfn.csv")
+#district_map <- read_csv("chicri/data/raw/PoliceDistrictDec2012.csv")
+```
+
+In order to include spatial information, we consider the District variable. We observe that all districts experience reasonable numbers of crimes to be incorporated into analysis, with the exception of District 031. 
+
+```{r}
+district_map <- district_map %>%
+  select(c(the_geom, District = dist_num)) %>%
+  st_as_sf(wkt = "the_geom") 
+plot_heat_map_d(district_map,"District")
+```
+
+This district is made up of multiple different areas, as can be seen in the above. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
 
 ```{r}
 dat$District <- dat$District %>%
@@ -104,18 +129,6 @@ ggplot(dat) +
 # Removing district 31 from analysis
 dat <- dat[dat$District != "031",]
 dat$District <- fct_drop(dat$District)
-```
-
-```{r}
-# Loading mapping data for plots
-district_map <- read_csv("chicri/data/raw/PoliceDistrictDec2012.csv")
-```
-
-```{r}
-district_map <- district_map %>%
-  select(c(the_geom, District =DIST_NUM)) %>%
-  st_as_sf(wkt = "the_geom") 
-plot_heat_map_d(district_map,"District")
 ```
 
 BEEP alternative plot not v pretty BEEP
@@ -136,7 +149,9 @@ centroids_plot <- ggplot() +
   theme_void()
 centroids_plot
 ```
-In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. BEEP Source http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts
+In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. 
+
+BEEP Source http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts
 
 https://news.wttw.com/2020/04/30/chicago-police-opening-2-new-operation-areas-expand-resources-across-city
 
@@ -176,7 +191,7 @@ ggplot(dat) +
   geom_bar(aes(y = `District Area`))
 ```
 
-We don't consider the X and Y coordinates so drop them from our analysis
+As we are choosing to encode location in our model via district, in order to reduce computational costs we will not consider the X and Y coordinates so drop them from our analysis.
 
 ```{r}
 dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
@@ -185,7 +200,7 @@ dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
 
 ### Date
 
-In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardise both of these variables, in accordance with the recommendations in the vignettes of our modelling package, to take value between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model.
+In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model.
 
 ```{r}
 dat <- dat %>%
@@ -197,7 +212,7 @@ dat <- dat %>%
 
 ## Multinomial Logistic Regression
 
-We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. 
+We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We implement 
 
 ```{r}
 set.seed(1)
@@ -214,7 +229,7 @@ mnlr <- multinom(`Primary Type` ~ .-District -`Location Description`, data=train
 #output <- summary(mnlr)
 ```
 
-output value is error (v high here and also no convergence: how to fix?)
+output value is error (v high here and also no convergence)
 summary takes ages to load: coeffs + std errors
 need to do test for significant veriables - example uses z test but maybe different because categorical variables?
 need all p values to be below threshold for insignificance
