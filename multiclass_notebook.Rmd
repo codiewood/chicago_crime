@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
 # Multi-class Classification
@@ -24,8 +24,10 @@ Firstly, we perform feature selection by manual investigation of our variables. 
 #wont need this when loading package
 require(nnet) # For multinomial regression
 require(tidyverse) # For data manip
+require(lubridate) # For date/time
 require(ggplot2) # For plots
 require(sf) # For spatial plots
+require(caret) # For confusion matrix
 
 #shouldnt need below when package sorted
 source("chicri/R/multiclass_classification.R")
@@ -97,6 +99,7 @@ ggplot(dat) +
 ```
 BEEP
 
+
 ### District
 
 ```{r}
@@ -156,6 +159,7 @@ BEEP Source http://oururbantimes.com/district-stations/command-changes-12th-and-
 https://news.wttw.com/2020/04/30/chicago-police-opening-2-new-operation-areas-expand-resources-across-city
 
 ```{r}
+# TODO Way to make this a function or lkp?
 area1 <- c("002","003","008","009","007")
 area2 <- c("004","005","006","022")
 area3 <- c("001","012","018","019","020","024")
@@ -200,7 +204,7 @@ dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
 
 ### Date
 
-In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model.
+In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model. We then remove the `Date` variable.
 
 ```{r}
 dat <- dat %>%
@@ -212,61 +216,57 @@ dat <- dat %>%
 
 ## Multinomial Logistic Regression
 
-We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We implement 
+We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We calculate various model performance metrics using the `confusionMatrix()` function from the `caret` package. Namely we focus here on calculating overall accuracy, as well as class specific sensitivity, specification and accuracy values. We implement 3-fold repeated cross validation, with $n = 5$ repeats, and calculate the average of each metric across all folds for each repeat.
+
 
 ```{r}
-set.seed(1)
-prop <- 0.8
-ind <- sample(2, nrow(dat), replace = T, prob = c(prop,1-prop))
-training <- dat[ind==1,]
-testing <- dat[ind==2,]
+#setting seed for reprodcibility
+set.seed(200899)
+metrics <- c("Sensitivity", "Specificity","Balanced Accuracy")
+
+# Splitting response data and different model variable sets
+y <- dat$`Primary Type`
+X_area <- dat %>% select(-c(`Primary Type`,`Location Description`,District))
+X_district <- dat %>% select(-c(`Primary Type`,`Location Description`,`District Area`))
 ```
 
-create model
+
+```{r}
+mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 3, n_reps = 5, metrics = metrics)
+```
+
+```{r}
+save(mnlr_results_area, file = "chicri/temp_data/mnlr_results_area.RData")
+```
+
+
+```{r}
+mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 3, n_reps = 5, metrics = metrics)
+```
+
+```{r}
+save(mnlr_results_district, file = "chicri/temp_data/mnlr_results_district.RData")
+```
+
+
+```{r, include = FALSE}
+mnlr_results_area <- load("chicri/temp_data/mnlr_results_area.RData")
+mnlr_results_district <-load("chicri/temp_data/mnlr_results_district.RData")
+```
+if want to look more at model fit again
 
 ```{r}
 mnlr <- multinom(`Primary Type` ~ .-District -`Location Description`, data=training)
-#output <- summary(mnlr)
-```
-
-output value is error (v high here and also no convergence)
-summary takes ages to load: coeffs + std errors
-need to do test for significant veriables - example uses z test but maybe different because categorical variables?
-need all p values to be below threshold for insignificance
-
-```{r}
-sig_test <- significance_test(mnlr)
-sig_test
-```
-
-can extract coefs with coef function but issue is standard errors
-
-```{r}
-coef(mnlr)
-```
-
-```{r}
-sqrt(diag(vcov(mnlr)))
-```
-
-model selection using MASS says all terms significant
-
-```{r}
-MASS::dropterm(mnlr, trace=FALSE, test="Chisq") 
-```
-
-
-now would remove vars which aren't significant (could write function but probably do manually)
-
-can get eqn from this, gives log(p(class)/p(ref class)) = coeff*var + ...
-
-```{r}
 head(pp <- fitted(mnlr)) #Predictive probabilities
+coef(mnlr) #Coeffs
 ```
+
+can get eqn from models, gives log(p(class)/p(ref class)) = coeff*var + ...
 
 create confusion matrix from training data
 numbers on diag are correct predictions
 not sure if prop is correct here
+
 
 ```{r}
 pred <- predict(mnlr, training, type="class")
@@ -287,15 +287,6 @@ training_conf <- ggplot(confusion_df, aes(x=Actual, y = Predicted, fill=Freq)) +
 training_conf
 ```
 
-accuracy is sum of diagonal over total sum, gives proportion of correct predictions for training set. 1 - accuracy is misclassification.
-We observe that our classifier has an accuracy of 36.4% on our training data, which is very low.
-
-```{r}
-accuracy.training <- sum(diag(tab))/sum(tab)
-accuracy.training
-```
-
-now do same but for test data set (again check prop)
 
 ```{r}
 pred.test <- predict(mnlr, testing, type="class")
@@ -315,40 +306,15 @@ test_conf <- ggplot(confusion_df.test, aes(x=Actual, y = Predicted, fill=Freq)) 
 test_conf
 ```
 
-again do accuracy but this might have another specific word now its testing
-still low at 36.5%
-
-```{r}
-accuracy.test <- sum(diag(tab.test))/sum(tab.test)
-accuracy.test
-```
-
-prediction and model assessment
 
 look at what would happen if we just assigned all points one class: we want our model to do better than that
 
 ```{r}
-t <- table(training$`Primary Type`) 
+t <- table(y$`Primary Type`) 
 t #data from training set
 t/sum(t)
 ```
 
-look at class specific misclassification for training and test data
-diag gives accuracy for specific class
-this is hard to look at so might want to extract values
-
-```{r}
-tab/colSums(tab)
-tab.test/colSums(tab.test)
-```
-
-TODO:
-* look at model checking other than accuracy specificity etc
-* read over all chicago specific things n note down qs
-* look at ROC and AUC maybe?
-* how to implement CV and splitting?
-* decide what I want the structure of this bit of report to be
-* look at r package making
 
 a) Precision (tp / (tp + fp) ) measures the ability of a classifier to identify only the correct instances for each class.
 
@@ -358,13 +324,6 @@ c) F1 score is a weighted harmonic mean of precision and recall normalized betwe
 
 d) Support is the number of actual occurrences of the class in the test data set. Imbalanced support in the training data may indicate the need for stratified sampling or rebalancing.
 
-## Penalised?
-
-```{r}
-X <- dat %>% select(-c(`Location Description`,District,`Primary Type`))
-y <- dat$`Primary Type`
-mnlm.pen <- cv.glmnet(X,y)
-```
 
 
 
