@@ -1,7 +1,5 @@
 # Script containing functions for location analysis
 #'
-#' @import tidyverse
-#' @import sf
 NULL
 
 #' Producing a heatmap based on a variable
