@@ -7,3 +7,7 @@ test_that("load_crimes works", {
   expect_true(object=is.factor(df$`Location Description`))
   expect_true(object=is.factor(df$District))
 })
+
+test_that("othering works", {
+})
+
