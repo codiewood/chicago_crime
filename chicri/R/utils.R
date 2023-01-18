@@ -63,7 +63,10 @@ load_crimes_API <- function(year = "2019"){
   else {
     data_API <- RSocrata::read.socrata(paste0(base_url, "?year=", year))
   }
-
+  data <- data_API %>%
+    dplyr::as_tibble() %>%
+    long_variables()
+  return(data)
 }
 
 #' Load chicago crime data from processed csv.
