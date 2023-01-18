@@ -2,7 +2,11 @@
 #'
 #' @import tidyverse
 #' @import lubridate
-#' @import RSocrata
+#' @importFrom RSocrata read.socrata
+#' @import lubridate
+#' @import dplyr
+#' @import readr
+#' @import forcats
 NULL
 
 #TODO: this should mimic the data processing R script and convert into tibble format
@@ -45,15 +49,21 @@ short_variables <- function(data){
 #' Load chicago crime data using Socrata API.
 #'
 #' @description
-#' Returns a data frame of Chicago Crime data from specified year or range of years,
-#' or returns entire dataset from 2001 to present if no years are specified.
+#' Returns a data frame of Chicago Crime data, optionally from specified year.
 #'
-#' @param filepath path to the processed csv file.
+#' @param year The year, between 2001 and present, of the data to be extracted. If NULL returns all data from 2001 to present. Default is "2019".
 #'
-#' @return tibble data frame of Chicago Crime data.
+#' @return tibble data frame of Chicago Crime data from the specified year.
 #' @export
-load_crimes_API <- function(){
-  #at some point call process_data, maybe make this an option
+load_crimes_API <- function(year = "2019"){
+  base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
+  if(is.null(year)){
+    data_API <- RSocrata::read.socrata(base_url)
+  }
+  else {
+    data_API <- RSocrata::read.socrata(paste0(base_url, "?year=", year))
+  }
+
 }
 
 #' Load chicago crime data from processed csv.
