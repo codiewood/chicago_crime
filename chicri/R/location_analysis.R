@@ -16,11 +16,13 @@
 #'
 #'
 plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){
-  ggplot() +
+
+   p<- ggplot() +
     geom_sf(data = data, aes(fill = get(variable))) +
     scale_fill_viridis_c(name = legend.title,option = "magma", trans = trans) +
     theme_void()
-}
 
+    return(p)
+}
 
 
