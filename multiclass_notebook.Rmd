@@ -1,0 +1,329 @@
+---
+title: "Multiclass Lab Notebook"
+author: "Codie Wood"
+date: "2023-01-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+# Multi-class Classification
+
+```{r, include = FALSE}
+# Clear work environment to reset from previous sections
+rm(list = ls())
+```
+
+In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We will focus here on the method of multinomial logistic regression.
+
+Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
+
+```{r}
+#wont need this when loading package
+require(nnet) # For multinomial regression
+require(tidyverse) # For data manip
+require(lubridate) # For date/time
+require(ggplot2) # For plots
+require(sf) # For spatial plots
+require(caret) # For confusion matrix
+
+#shouldnt need below when package sorted
+source("chicri/R/multiclass_classification.R")
+source("chicri/R/utils.R")
+source("chicri/R/location_analysis.R")
+theme_set(theme_bw())
+```
+
+## Feature Selection
+
+Due to the extremely large size of the full data set, it computationally intensive to download, store and use to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019.
+
+```{r}
+dat <- load_crimes_csv("chicri/data/processed/Crimes_2019_Location_Type.csv")
+# Replace this with API stuff
+```
+
+As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task. In order to do this we incorporating information from conduct exploratory data analysis, as well as considering computational cost.
+
+### Primary Type
+
+```{r}
+# Reorders type factor for plotting
+dat$`Primary Type` <- fct_infreq(dat$`Primary Type`) %>% fct_rev()
+
+thr <- 1000 # set threshold for othering
+ggplot(dat) +
+  geom_bar(aes(y = `Primary Type`)) +
+  geom_vline(xintercept=thr, colour="red")
+```
+
+We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our response variable, with 7.57% of data values in the OTHER category.
+
+```{r}
+dat$`Primary Type` <- fct_recode(dat$`Primary Type`,"OTHER" = "OTHER OFFENSE") %>%
+  othering(thr,print_summary = T) %>%
+  fct_infreq() %>%
+  fct_rev()
+
+ggplot(dat) +
+  geom_bar(aes(y = `Primary Type`))
+```
+
+### Location Description
+
+We also wish to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. We begin by manually merging some of the levels. Namely, we merge BEEP hunker down on this BEEP
+check what other function combines?
+what is dif between sidewalk and street
+look for levels which are same but dif spacing
+apartment vs residence
+maybe want to sit w rahil and do this
+BEEP
+In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER
+```{r}
+dat$`Location Description` <- fct_infreq(dat$`Location Description`) %>% fct_rev()
+
+ggplot(dat) +
+  geom_bar(aes(y = `Location Description`)) +
+  geom_vline(xintercept=thr, colour="red")
+```
+
+```{r}
+dat <- regroup_locations(dat,thr)
+
+dat$`Location Description` <- fct_infreq(dat$`Location Description`) %>% fct_rev()
+
+ggplot(dat) +
+  geom_bar(aes(y = `Location Description`))
+```
+BEEP
+
+
+### District
+
+```{r}
+# Loading mapping data for plots
+district_map <- read.socrata("https://data.cityofchicago.org/resource/24zt-jpfn.csv")
+#district_map <- read_csv("chicri/data/raw/PoliceDistrictDec2012.csv")
+```
+
+In order to include spatial information, we consider the District variable. We observe that all districts experience reasonable numbers of crimes to be incorporated into analysis, with the exception of District 031. 
+
+```{r}
+district_map <- district_map %>%
+  select(c(the_geom, District = dist_num)) %>%
+  st_as_sf(wkt = "the_geom") 
+plot_heat_map_d(district_map,"District")
+```
+
+This district is made up of multiple different areas, as can be seen in the above. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
+
+```{r}
+dat$District <- dat$District %>%
+  fct_infreq() %>%
+  fct_rev()
+
+ggplot(dat) +
+  geom_bar(aes(y = District))
+```
+
+```{r}
+# Removing district 31 from analysis
+dat <- dat[dat$District != "031",]
+dat$District <- fct_drop(dat$District)
+```
+
+BEEP alternative plot not v pretty BEEP
+
+```{r}
+district_labels <- sort(as.integer(district_map$District))
+centroids <- district_map %>%
+  arrange(as.integer(District)) %>%
+  st_centroid() %>%
+  st_coordinates() %>%
+  as_tibble() %>%
+  mutate(district_labels = district_labels)
+# Plot the locations of centroids on map
+centroids_plot <- ggplot() +
+  geom_sf(data = district_map) +
+  geom_point(data = centroids, aes(X, Y), size = 5, colour = "Plum") +
+  geom_text(data = centroids, aes(X, Y, label = district_labels)) +
+  theme_void()
+centroids_plot
+```
+In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. 
+
+BEEP Source http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts
+
+https://news.wttw.com/2020/04/30/chicago-police-opening-2-new-operation-areas-expand-resources-across-city
+
+```{r}
+# TODO Way to make this a function or lkp?
+area1 <- c("002","003","008","009","007")
+area2 <- c("004","005","006","022")
+area3 <- c("001","012","018","019","020","024")
+area4 <- c("010","011","015")
+area5 <- c("014","016","017","025")
+dat$`District Area` <- fct_collapse(dat$District, "AREA 1" = area1, "AREA 2" = area2, "AREA 3" = area3, "AREA 4"= area4, "AREA 5" = area5) %>%
+  fct_relevel(sort)
+```
+
+
+```{r}
+district_map$Area <- fct_collapse(as.factor(district_map$District), "AREA 1" = as.character(as.integer(area1)), "AREA 2" = as.character(as.integer(area2)), "AREA 3" = as.character(as.integer(area3)), "AREA 4"= as.character(as.integer(area4)), "AREA 5" = as.character(as.integer(area5))) %>%
+  fct_relevel(sort) %>%
+  fct_relevel("31", after = Inf)
+
+plot_heat_map_d(district_map,"Area")
+```
+
+BEEP plot with district labels BEEP
+
+```{r}
+ggplot() +
+  geom_sf(data = district_map, aes(fill = Area)) +
+    scale_fill_viridis_d(name = "Area",option = "magma") +
+  geom_point(data = centroids, aes(X, Y), size = 7, shape=22, fill = "Grey", alpha=0.7) +
+  geom_text(data = centroids, aes(X, Y, label = district_labels)) +
+  theme_void()
+```
+
+
+```{r}
+ggplot(dat) +
+  geom_bar(aes(y = `District Area`))
+```
+
+As we are choosing to encode location in our model via district, in order to reduce computational costs we will not consider the X and Y coordinates so drop them from our analysis.
+
+```{r}
+dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
+```
+
+
+### Date
+
+In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model. We then remove the `Date` variable.
+
+```{r}
+dat <- dat %>%
+  mutate(dat,
+         Day = yday(dat$Date) / 365,
+         Time = (hour(dat$Date) + minute(dat$Date) / 60)/24) %>%
+  select(-Date)
+```
+
+## Multinomial Logistic Regression
+
+We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We calculate various model performance metrics using the `confusionMatrix()` function from the `caret` package. Namely we focus here on calculating overall accuracy, as well as class specific sensitivity, specification and accuracy values. We implement 3-fold repeated cross validation, with $n = 5$ repeats, and calculate the average of each metric across all folds for each repeat.
+
+
+```{r}
+#setting seed for reprodcibility
+set.seed(200899)
+metrics <- c("Sensitivity", "Specificity","Balanced Accuracy")
+
+# Splitting response data and different model variable sets
+y <- dat$`Primary Type`
+X_area <- dat %>% select(-c(`Primary Type`,`Location Description`,District))
+X_district <- dat %>% select(-c(`Primary Type`,`Location Description`,`District Area`))
+```
+
+
+```{r}
+mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 3, n_reps = 5, metrics = metrics)
+```
+
+```{r}
+save(mnlr_results_area, file = "chicri/temp_data/mnlr_results_area.RData")
+```
+
+
+```{r}
+mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 3, n_reps = 5, metrics = metrics)
+```
+
+```{r}
+save(mnlr_results_district, file = "chicri/temp_data/mnlr_results_district.RData")
+```
+
+
+```{r, include = FALSE}
+mnlr_results_area <- load("chicri/temp_data/mnlr_results_area.RData")
+mnlr_results_district <-load("chicri/temp_data/mnlr_results_district.RData")
+```
+if want to look more at model fit again
+
+```{r}
+mnlr <- multinom(`Primary Type` ~ .-District -`Location Description`, data=training)
+head(pp <- fitted(mnlr)) #Predictive probabilities
+coef(mnlr) #Coeffs
+```
+
+can get eqn from models, gives log(p(class)/p(ref class)) = coeff*var + ...
+
+create confusion matrix from training data
+numbers on diag are correct predictions
+not sure if prop is correct here
+
+
+```{r}
+pred <- predict(mnlr, training, type="class")
+tab <- table(Predicted=pred,
+             Actual=training$`Primary Type`)
+confusion_df <- as.data.frame(tab)
+```
+
+
+```{r}
+training_conf <- ggplot(confusion_df, aes(x=Actual, y = Predicted, fill=Freq)) +
+  coord_equal() +
+  geom_tile() +
+  labs(title = "Prediction distribution") +
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
+  geom_text(aes(label=Freq), color="black") # printing values
+training_conf
+```
+
+
+```{r}
+pred.test <- predict(mnlr, testing, type="class")
+tab.test <- table(Predicted=pred.test,
+             Actual=testing$`Primary Type`)
+confusion_df.test <- as.data.frame(tab.test)
+```
+
+```{r}
+test_conf <- ggplot(confusion_df.test, aes(x=Actual, y = Predicted, fill=Freq)) +
+  coord_equal() +
+  geom_tile() +
+  labs(title = "Prediction distribution") +
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
+  geom_text(aes(label=Freq), color="black") # printing values
+test_conf
+```
+
+
+look at what would happen if we just assigned all points one class: we want our model to do better than that
+
+```{r}
+t <- table(y$`Primary Type`) 
+t #data from training set
+t/sum(t)
+```
+
+
+a) Precision (tp / (tp + fp) ) measures the ability of a classifier to identify only the correct instances for each class.
+
+b) Recall (tp / (tp + fn)) is the ability of a classifier to find all correct instances per class.
+
+c) F1 score is a weighted harmonic mean of precision and recall normalized between 0 and 1. F score of 1 indicates a perfect balance as precision and the recall are inversely related. A high F1 score is useful where both high recall and precision is important.
+
+d) Support is the number of actual occurrences of the class in the test data set. Imbalanced support in the training data may indicate the need for stratified sampling or rebalancing.
+
+
+
+
