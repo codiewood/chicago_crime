@@ -96,4 +96,3 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
     }
     return(factor_vec)
 }
-
