@@ -36,8 +36,7 @@ We now plot the map of chicago with respect to these indicators:
 library(gridExtra)
 community_info <- left_join(community_map, socio_ind, by = c("area" = "ca"))
 
-poverty_plot <- plot_map(data = community_info, variable = "percent_households_below_poverty", 
-                         legend.title = "Households \n in \n Poverty \n (%)", trans = "reverse")
+poverty_plot <- plot_heat_map(data = community_info, variable = "percent_households_below_poverty", legend.title = "Households \n in \n Poverty \n (%)", trans = "reverse")
 
 income_plot <- plot_map(data = community_info, variable = "per_capita_income_", 
                          legend.title = "Per Capita \n Income ($)")
@@ -48,15 +47,191 @@ hardship_plot <- plot_map(data = community_info, variable = "hardship_index",
 grid.arrange(poverty_plot, income_plot, hardship_plot, nrow = 1)
 ```
 
+
 ## Regression In Time
 
 
 
 ```{r}
+library(zoo)
+library(lubridate)
+
 complaints <- read.socrata("https://data.cityofchicago.org/resource/mft5-nfa8.csv")
+complaints <- complaints %>% select(c(complaint_date, assignment))
+
+data <- data_API
+data <- data %>% filter(year(date) <= 2019) 
 
 
-data_API <- data_API %>% filter(year(date ) <= 2019)
-complaints <- data_API 
+
+complaints <- complaints %>% filter(year(complaint_date) <= 2019)
+
+data <- data %>% mutate(date = as.yearmon(date)) %>%
+  group_by(date) %>% dplyr::summarise(crimes = n())
+
+complaints <- complaints %>% mutate(month = as.yearmon(complaint_date)) %>%
+  group_by(month, assignment) %>% dplyr::summarise(cases = n())
+ 
+min_date <- min(complaints$month)
+
+data <- data %>% filter(month >=min_date)
+crime_plot <- ggplot(data) +
+  geom_line(aes(x= month, y = crimes)) +
+  theme_minimal()
+
+cases_plot <- ggplot()+
+  geom_line(data = complaints, aes(x = month, y = cases, color = assignment)) +
+  theme_minimal()
+
+gridExtra::grid.arrange(crime_plot, cases_plot)
+```
+
+
+## Trigonometric Basis Function
+
+```{r}
+trig_transform <- function(X, b){
+  phi <- matrix(nrow = 2*b, ncol = length(X))
+  for (i in 1:b){
+    phi[(2*i -1),] <- sin(i*X)
+    phi[(2*i),] <- cos(i*X)
+  }
+  
+  return(rbind(1,phi))
+}
+
+
+trig_coefficients <- function(X,y,b){
+   phi <- trig_transform(X,b)
+   w <- solve(phi %*% t(phi), phi %*% y)
+   return(w)
+}
+
+trig_predicted <- function(X, w,b){
+  phi <- trig_transform(X, b)
+  y <- as.vector(t(w) %*% phi)
+  return(y)
+}
+```
+
+
+
+```{r}
+N <- nrow(data)
+
+data <- data %>% mutate(time = (1:nrow(data))/nrow(data))
+
+data_train <- data %>% filter(year(date) <2019)
+data_test <- data%>% filter(year(date)== 2019)
+
+b <- 3
+w <- trig_coefficients(data_train$time, data_train$crimes,b)
+
+train_fitted <- trig_predicted(data_train$time, w, b) - 5000*sin(pi *data_train$time * 48 -1)
+
+test_fitted <- trig_predicted(data_test$time, w, b) - 5000*sin(pi * data_test$time * 48 - 1)
+
+plot_data_train <- cbind(data_train, fitted = train_fitted, Data = "Train")
+plot_data_test <-  cbind(data_test, fitted = test_fitted, Data = "Test")
+
+plot_data <- rbind(plot_data_train, plot_data_test)
+
+ggplot(plot_data) +
+  geom_line(aes(x = date, y = fitted, color = Data)) +
+  geom_point(aes(x = date, y = crimes)) + 
+  #geom_line(aes(x = date, y = crimes)) +
+  theme_minimal()
+
+
+plot(plot_data$time, 5000*sin(pi *plot_data$time *6))
+```
+
+```{r}
+x <- log(data$crimes)
+x <- diff(x)
+data <- data %>% mutate(log_differenced = c(NA, x)) %>% filter(!is.na(log_differenced))
+
+ggplot(data) +
+  geom_line(aes(x = month, y = log_differenced)) +
+  theme_minimal()
+```    
+```{r}
+library(forecast)
+
+x <-data$crimes
+x <- diff(x, lag = 12)
+ts.plot(x)
+x <- diff(x)
+ts.plot(x)
+acf(x)
+pacf(x)
+
+acf <- ggAcf(data$log_differenced) + theme_minimal()
+pacf <- ggAcf(data$log_differenced, type = "partial") + theme_minimal()
+grid.arrange(acf,pacf)
+
+model <- auto.arima(df_train$crimes)
+
+predict <- forecast(model, h = 12)
+autoplot(predict) +
+  geom_line(data = data,aes(x = 1:nrow(data), y = crimes))
+
+```
+
+
+## Regression
+
+```{r}
+library(mgcv)
+
+daily <- data_API %>% filter(year(date) >2012, year(date) <=2019) %>%
+  mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+  group_by(week_start) %>% dplyr::summarise(count = n()) %>%
+  mutate(week= week(week_start), year = year(week_start))
+
+
+df_train <- daily %>% filter(year < 2018)
+df_test <- daily %>% filter(year>= 2018)
+
+control <- gam.control(nthreads = 1)
+
+model_smooth <- gam(count ~ s(week, bs = "cc") + as.numeric(year), data = df_train, family = "poisson", control = control)
+model_wobbly <- gam(count ~ s(week, bs = "cc", k = 50) + as.numeric(year), data = df_train, family = "poisson", control = control)
+
+pred_train <- cbind("smooth" = model_smooth$fitted.values, "wobbly" = model_wobbly$fitted.values, "data" = "Train" ) %>% as.tibble()
+
+pred_test <- cbind("smooth" = predict(model_smooth, df_test, type = "response"), "wobbly" = predict(model_wobbly, df_test, type = "response"), "data" = "Test") %>% as.tibble()
+predicted <- rbind(pred_train, pred_test)
+
+plot_data <- cbind(daily, predicted) %>% pivot_longer(c(smooth, wobbly), names_to = "model", values_to = "fitted")
+plot_data <- plot_data %>% mutate("fitted" = as.numeric(fitted))
+
+ggplot(data = plot_data) +
+  geom_point(aes(x=week_start, y =count)) +
+  geom_line( aes(x=week_start, y=fitted, color = data), size = 1) + 
+  facet_wrap(vars(model))+
+  theme_minimal()
+
+plot(plot_data$week_start, plot_data$fitted)
+
+
+predicted
+```
+```{r}
+daily <- data_API %>% filter(year(date) >2012, year(date) <=2019) %>%
+  mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+  group_by(week_start, community_area) %>% dplyr::summarise(count = n()) %>%
+  mutate(week= week(week_start), year = year(week_start))
+
+
+
+df_train <- daily %>% filter(year < 2018)
+df_test <- daily %>% filter(year>= 2018)
+
+control <- gam.control(nthreads = 1)
+
+model_smooth <- gam(count ~ s(week, bs = "cc") + as.numeric(year), data = df_train, family = "poisson", control = control)
+model_wobbly <- gam(count ~ s(week, bs = "cc", k = 50) + as.numeric(year), data = df_train, family = "poisson", control = control)
+
 
 ```
