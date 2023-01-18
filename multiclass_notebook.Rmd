@@ -206,13 +206,39 @@ dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
 
 In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model. We then remove the `Date` variable.
 
+BEEP below code to encode time as a category
+```{r}
+x <- lubridate::hour(dat$Date) + lubridate::minute(dat$Date)/60
+tod <- rep("NIGHT",length(x))
+for(i in 1:length(x)){
+  if(5 < x[i] & x[i] < 12){
+    tod[i] <- "MORNING"
+    }
+  else if(12 < x[i] & x[i] < 17){
+    tod[i] <- "AFTERNOON"
+    }
+  else if(17 < x[i] & x[i] < 21){
+    tod[i] <- "EVENING"
+    }
+}
+tod <- as.factor(tod)
+```
+
+BEEP note time of day here
 ```{r}
 dat <- dat %>%
   mutate(dat,
          Day = yday(dat$Date) / 365,
-         Time = (hour(dat$Date) + minute(dat$Date) / 60)/24) %>%
+         Time = (hour(dat$Date) + minute(dat$Date) / 60)/24,
+         `Time of Day` = tod) %>%
   select(-Date)
 ```
+
+```{r}
+ggplot(dat) +
+  geom_bar(aes(y = `Time of Day`, colour=Arrest))
+```
+
 
 ## Multinomial Logistic Regression
 
@@ -226,8 +252,8 @@ metrics <- c("Sensitivity", "Specificity","Balanced Accuracy")
 
 # Splitting response data and different model variable sets
 y <- dat$`Primary Type`
-X_area <- dat %>% select(-c(`Primary Type`,`Location Description`,District))
-X_district <- dat %>% select(-c(`Primary Type`,`Location Description`,`District Area`))
+X_area <- dat %>% select(-c(`Primary Type`,`Location Description`,District, `Time of Day`))
+X_district <- dat %>% select(-c(`Primary Type`,`Location Description`,`District Area`, `Time of Day`))
 ```
 
 
@@ -324,6 +350,17 @@ c) F1 score is a weighted harmonic mean of precision and recall normalized betwe
 
 d) Support is the number of actual occurrences of the class in the test data set. Imbalanced support in the training data may indicate the need for stratified sampling or rebalancing.
 
+```{r}
+#setting seed for reprodcibility
+set.seed(200899)
+metrics <- c("Sensitivity", "Specificity","Balanced Accuracy")
 
+# Splitting response data and different model variable sets
+y_tod <- dat$`Time of Day`
+X_tod_area <- dat %>% select(-c(Time,`Location Description`,District,`Time of Day`))
+X_tod_district <- dat %>% select(-c(Time,`Location Description`,`District Area`, `Time of Day`))
+tod_mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
+tod_mnlr_results_district <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
+```
 
 
