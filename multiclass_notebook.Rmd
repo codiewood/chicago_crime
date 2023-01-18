@@ -248,7 +248,7 @@ We use the `multinom()` function from the `nnet` package in order to implement m
 ```{r}
 #setting seed for reprodcibility
 set.seed(200899)
-metrics <- c("Sensitivity", "Specificity","Balanced Accuracy")
+metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
 
 # Splitting response data and different model variable sets
 y <- dat$`Primary Type`
@@ -258,7 +258,7 @@ X_district <- dat %>% select(-c(`Primary Type`,`Location Description`,`District 
 
 
 ```{r}
-mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 3, n_reps = 5, metrics = metrics)
+mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 ```{r}
@@ -267,7 +267,7 @@ save(mnlr_results_area, file = "chicri/temp_data/mnlr_results_area.RData")
 
 
 ```{r}
-mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 3, n_reps = 5, metrics = metrics)
+mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 ```{r}
