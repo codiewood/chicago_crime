@@ -1,5 +1,6 @@
 # Script containing functions for location analysis
-#'
+#' @import ggplot2
+#' @import sf
 NULL
 
 #' Producing a heatmap based on a variable
@@ -15,13 +16,11 @@ NULL
 #'
 #' @export
 plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){
-
-   p<- ggplot() +
+   p <- ggplot() +
     geom_sf(data = data, aes(fill = get(variable))) +
     scale_fill_viridis_c(name = legend.title,option = "magma", trans = trans) +
     theme_void()
-
-    return(p)
+   return(p)
 }
 
 #' Producing a heatmap based on a discrete variable
@@ -36,9 +35,10 @@ plot_heat_map <- function(data, variable, legend.title = variable ,trans = "iden
 #'
 #' @export
 plot_heat_map_d <- function(data, variable, legend.title = variable){
-  ggplot() +
+  p <- ggplot() +
     geom_sf(data = data, aes(fill = as.factor(get(variable)))) +
     scale_fill_viridis_d(name = legend.title,option = "magma") +
     theme_void()
+  return(p)
 }
 
