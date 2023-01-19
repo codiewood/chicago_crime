@@ -9,6 +9,7 @@ date: "2023-01-09"
 ```{r}
 library(plyr)
 library(tidyr)
+detach(package:plyr) 
 library(dplyr)
 library(lubridate)
 library(forcats)
@@ -16,8 +17,11 @@ library(stringr)
 library(readr)
 library(boot)
 library(caret)
+library(kernlab)
 
 data_all <- read_csv('Crimes_2019.csv',show_col_types = FALSE)
+
+
 
 data <- data_all %>% select(-c(ID, `Case Number`, Block, IUCR, Description, Beat, Ward, `Community Area`, `Updated On`, Latitude, Longitude, Location, Year, `Location Description`))
 
@@ -45,8 +49,10 @@ crimes <- drop_na(data_all)
 crimes$Date <- parse_datetime(crimes$Date, format = "%m/%d/%Y %I:%M:%S %p")
 
 crimes <- crimes %>% select(-c(ID, `Case Number`, Block, IUCR, Description, Beat, Ward, `Community Area`, `Updated On`, Latitude, Longitude, Location, Year, 'FBI Code', 'Location Description'))
-  
-time.data <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = hour(crimes$Date)) %>% group_by(Hour) %>% count(Arrest)
+
+crimes[c('Primary Type', 'District', 'Arrest', 'Domestic')] <- lapply(crimes[c('Primary Type', 'District', 'Arrest', 'Domestic')],as.factor)
+
+time.data <- crimes %>% mutate(Hour = as.factor(hour(crimes$Date))) %>% group_by(Hour) %>% count(Arrest)
 
 crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
 
@@ -64,7 +70,7 @@ crimes$`Primary Type` <- othering(crimes$`Primary Type`, 500)
 
 crimes<- droplevels(crimes)
 ```
-
+For some EDA on the importance of including time data in our model for classifying likelihood of arrest, we plot the probability of arrest for each hour (using 2019 data), we see that the proportion of arrests are inconsistent depending on time - this could be due to types of crimes expected at each time. This makes it seem significant to at least include in the model.BEEP
 
 ```{r}
 #calculate proportion of crimes resulted in arrest in each hour
@@ -97,7 +103,7 @@ plot2 <- ggplot(arrdf) + geom_point(aes(x =Hour, y = Arr, color = 'Arrests' )) +
 plot_grid(plot1, plot2, nrow=2)
 ```
 
-
+Here I use the Caret Library to Train a SVM.
 
 ```{r}
 library(e1071)  
@@ -116,44 +122,232 @@ mt <- terms(mf)
 X <- model.matrix(mt, mf)
 Y <- model.response(mf)
 
+```
+
+We will attempt to fit our SVM using 2 different training sets. As SVM models scale badly with data points we have to train our models on samples of our data set (which has approximately $250,000$ data points). There are a few methodologies when taking these samples, we could randomly sample our data, we could also take a representative sample and we could also try having equal amount of samples from each of the classes.
+
+```{r}
+crimes %>% count(Arrest)
+```
+
+We see that only $21.7%$ of the data has `Arrest = TRUE`. For our first SVM model, we just take a representative sample (of the same size as the previous model). The `createDataPartition` function in `caret` allows us to easily do this.
 
 
-#svm_tuned <- tune(e1071::svm, Y ~ ., train.x = X, train.y = Y, 
- #                 ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)),
-  #                tunecontrol = tune.control(nrepeat = 3, 
-   #                                          sampling = "cross", 
-    #                                         cross = 5),
-     #             kernel = "radial", type = "C-classification")
+```{r}
+trainIndex <- createDataPartition(crimes$Arrest, p = .05, 
+                                  list = TRUE)
+
+crimesTest <- crimes[trainIndex$Resample,]
+
+crimesTest %>% count(Arrest)
+```
+
+Using the `train` function from `caret` we can train our classifier using SVM with a Radial Basis Kernel, I use the package `doParallel` to allow us to do $5$ fold cross validation in parallel.
+
+```{r}
+library(doParallel)
+
+cl <- makePSOCKcluster(detectCores() - 1)
+
+registerDoParallel(cl)
+
+svm.model <- train(Arrest ~ .,
+                   data = crimesTest,
+                   trControl = trainControl(method = 'cv',5, allowParallel = TRUE),
+                   method = 'svmRadial',
+                   family = binomial(),
+                   allowParallel = TRUE)
+
+stopCluster(cl)
+svm.model$results[c('Accuracy', 'Kappa')]
+```
+
+
+As we will be taking a somewhat small sample of our whole data set to train this model on, we can try a method called down sampling, this a method of sampling a data set in which we take all of the data points from our lowest proportion class, and sample an equal amount of the other proportions of the classes.
+
+First we use the `downSample` function from `caret` this takes a sample of our data set, giving us an equal sample of both `Arrest = TRUE` and `Arrest = FALSE`.
+
+```{r}
+down_sample <- downSample(x = crimes, y = crimes$Arrest)
+down_sample %>% count(Arrest)
+```
+We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample.
+
+```{r}
+trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
+                                 list = TRUE)
+
+crimesTestD <- down_sample[trainIndexD$Resample,] %>% select(-Class)
+
+crimesTestD %>% count(Arrest)
 ```
 
 ```{r}
+cl <- makePSOCKcluster(detectCores() - 1)
 
-svm.model <- svm(X, Y, cross = 3, cost = 16, gamma = 0.03)
+registerDoParallel(cl)
 
+svm.modelD <- train(Arrest ~ .,
+                   data = crimesTestD,
+                   trControl = trainControl(method = 'cv', 5, allowParallel = TRUE),
+                   method = 'svmRadial',
+                   family = binomial())
+
+stopCluster(cl)
+svm.modelD$results[c('Accuracy', 'Kappa')]
 ```
 
+There is another method of sampling in a similar vein to down sampling, known as up sampling where we sample with replacement the non majority classes until they are of the same length as the majority class. 
 
-```{r echo=FALSE}
-#log.model <- cv.glm(as.factor(Arrest)~.,data = crimes ,family = "binomial", K= 3)
+```{r}
+up_sample <- upSample(x = crimes, y = crimes$Arrest)
+up_sample %>% count(Arrest)
+```
+```{r}
+trainIndexU <- createDataPartition(up_sample$Arrest, p = nrow(crimesTest)/nrow(up_sample), 
+                                 list = TRUE)
+
+crimesTestU <- up_sample[trainIndexU$Resample,] %>% select(-Class)
+
+crimesTestU %>% count(Arrest)
+```
+```{r}
+cl <- makePSOCKcluster(detectCores() - 1)
+
+registerDoParallel(cl)
+
+svm.modelU <- train(Arrest ~ .,
+                   data = crimesTestU,
+                   trControl = trainControl(method = 'cv', 5, allowParallel = TRUE),
+                   method = 'svmRadial',
+                   family = binomial())
+
+stopCluster(cl)
+svm.modelU$results[c('Accuracy', 'Kappa')]
+```
+
+We can similarly train a logistic regression model using 5-fold cross validation.
+
+```{r}
+cl <- makePSOCKcluster(detectCores() - 1)
+
+registerDoParallel(cl)
 
 log.model <- train(Arrest ~ .,
                data = crimes,
-               trControl = trainControl(method = 'cv',3),
+               trControl = trainControl(method = 'cv',5, allowParallel = TRUE),
                method = "glm",
                family=binomial())
+
+stopCluster(cl)
+log.model$results[c('Accuracy', 'Kappa')]
 ```
 
+There are many different ways to measure 
+$$Accuracy = Pr(\hat{Y} = Y)$$
+$$Sensitivity = Pr(\hat{Y} = 1 | Y = 1) = Pr(\text{True Positive})$$
+$$Specificity = Pr(\hat{Y} = 0| Y = 0) = Pr(\text{True Negative})$$
+
+An interesting benchmark for the usefulness of the model is the No-Information Rate which is the accuracy if we just guess for each data point is the largest percentage data point. For the crimes dataset that is $0.7828$. 
 
 ```{r echo=FALSE}
-#Creating SVM testing data
-mftest <- model.frame(crimes$Arrest ~ . - 1, crimes) 
-mttest <- terms(mftest)
-Xtest <- model.matrix(mttest, mftest)
-Ytest <- model.response(mftest)
+#confusionMatrix(reference = crimes$Arrest, data = predict(svm.model, newdata = crimes), positive = 'TRUE')
 
-confusionMatrix(reference = Ytest, data = predict(svm.model, newdata = Xtest), positive = 'TRUE')
-confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive = 'TRUE')
+#confusionMatrix(reference = crimes$Arrest, data = predict(svm.modelD, newdata = crimes), positive = 'TRUE')
+
+#confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive = 'TRUE')
 ```
+
+```{r}
+blank <- data.frame(ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
+up <- blank
+down <- blank
+logistic <- blank 
+repSVM <- blank
+
+for (testrow in 1:10){
+  sampIndex <- createDataPartition(crimes$Arrest, p = .025, 
+                                  list = TRUE)
+  
+  sampTest <- crimes[sampIndex$Resample,]
+  
+  u <- confusionMatrix(data = predict(svm.modelU, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
+  d <- confusionMatrix(data = predict(svm.modelD, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
+  l <- confusionMatrix(data = predict(log.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
+  r <- confusionMatrix(data = predict(svm.modelU, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
+  
+  up[testrow, ] <- c(u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
+               u[["byClass"]][["Specificity"]], u[["byClass"]][["Balanced Accuracy"]])
+  
+  down[testrow, ] <- c(d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
+               d[["byClass"]][["Specificity"]], d[["byClass"]][["Balanced Accuracy"]])
+  
+  logistic[testrow, ] <- c(l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
+               l[["byClass"]][["Specificity"]], l[["byClass"]][["Balanced Accuracy"]])
+  
+  repSVM[testrow, ] <- c(r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
+               r[["byClass"]][["Specificity"]], r[["byClass"]][["Balanced Accuracy"]])
+}
+```
+
+```{r}
+ggplot(mapping = aes(ACC,SENS, color = Model)) + 
+  geom_point(data = repSVM, mapping = aes(x = ACC, y = SENS, color = 'SVM')) +
+  geom_point(data = down, mapping = aes(x = ACC, y = SENS, color = 'Down SVM')) +
+  geom_point(data = logistic, mapping = aes(x = ACC, y = SENS, color = 'Logistic Regression')) + 
+  geom_point(data = up, mapping = aes(x = ACC, y = SENS, color = 'Up SVM')) + 
+  labs(title = 'Accuracy vs Sensitivity', x = 'Accuracy', y = 'Sensitivity') +
+  geom_vline(mapping = aes(xintercept = 0.7828, colour = 'No Information Rate'), size = 1)
+```
+
+```{r}
+ggplot(mapping = aes(ACC,SPEC, color = Model)) + 
+  geom_point(data = repSVM, mapping = aes(x = ACC, y = SPEC, color = 'SVM')) +
+  geom_point(data = down, mapping = aes(x = ACC, y = SPEC, color = 'Down SVM')) +
+  geom_point(data = logistic, mapping = aes(x = ACC, y = SPEC, color = 'Logistic Regression')) + 
+  geom_point(data = up, mapping = aes(x = ACC, y = SPEC, color = 'Up SVM')) + 
+  labs(title = 'Accuracy vs Specificity', x = 'Accuracy', y = 'Specificity') 
+```
+```{r}
+ggplot(mapping = aes(ACC,BALACC, color = Model)) + 
+  geom_point(data = repSVM, mapping = aes(x = ACC, y = BALACC, color = 'SVM')) +
+  geom_point(data = down, mapping = aes(x = ACC, y = BALACC, color = 'Down SVM')) +
+  geom_point(data = logistic, mapping = aes(x = ACC, y = BALACC, color = 'Logistic Regression')) + 
+  geom_point(data = up, mapping = aes(x = ACC, y = BALACC, color = 'Up SVM')) + 
+  labs(title = 'Accuracy vs Balanced Accuracy', x = 'Accuracy', y = 'Balanced Accuracy')
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```{r echo=TRUE}
 library(ROCit)
@@ -162,24 +356,22 @@ measure <- measureit(roc,measure = c("ACC", "SENS", "SPEC"))
 ```
 
 ```{r echo=TRUE}
-ggplot() + geom_point(aes(x = measure$TP, y = measure$TN)) + labs(title = 'ROC',x = 'True Positive', y = 'True Negative')
+ggplot() + geom_line(aes(x = measure$TP, y = measure$TN)) + labs(title = 'ROC',x = 'True Positive', y = 'True Negative')
 
-ggplot() + geom_point(aes(x = 1 - measure$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity')
+ggplot() + geom_line(aes(x = 1 - measure$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity')
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r echo=TRUE}
 ggplotROC <- function(fitval, y){
   roc <- rocit(score = fitval, class = y)
   meas <- measureit(roc,measure = c("ACC", "SENS", "SPEC"))                   
   return(ggplot() + geom_line(aes(x = 1 - meas$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity'))
 }
-ggplotROC(log.model[["finalModel"]][["fitted.values"]],log.model[["finalModel"]][["y"]])
 
 AUC <- function(fitval,y){
   roc_mod <- rocit(score = fitval , class = y)
   return(roc_mod[['AUC']])
 }
-AUC(log.model[["finalModel"]][["fitted.values"]], log.model[["finalModel"]][["y"]])
 ```
 
 Using ROC in this case has some theoretical advantages, it does tend to prefer models that obtain True positives- this  wouldn't be frowned upon as an overestimation allows redundancy preparation for the services needed to deal with arrests.
@@ -187,28 +379,5 @@ Using ROC in this case has some theoretical advantages, it does tend to prefer m
 ```{r eval=FALSE, warning=FALSE, include=FALSE}
 roc$AUC
 summary(roc)
-```
-
-```{r eval=FALSE, include=FALSE}
-library(mlr3verse)
-learner = lrn("classif.svm", type = "C-classification", kernel = "radial")
-
-learner$param_set$values$cost = to_tune(0.5, 20)
-learner$param_set$values$gamma = to_tune(2^{-9}, 2)
-
-svmcrime <- crimes
-svmcrime$wkday <- as.numeric(svmcrime$wkday)
-svmcrime <- svmcrime %>% select(-c(Domestic,Primary.Type, District))
-colnames(svmcrime) <- gsub(' ', '.', colnames(svmcrime))
-crime_task = as_task_classif(svmcrime, target = 'Arrest')
-skimr::skim(crime_task$data())
-instance = tune(
-  method = tnr("grid_search", resolution = 5),
-  task = crime_task,
-  learner = learner,
-  resampling = rsmp("cv", folds = 3),
-  measure = msr("classif.auc"),
-  resolution = 5
-)
 ```
 
