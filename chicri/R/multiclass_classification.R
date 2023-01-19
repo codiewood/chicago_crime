@@ -80,7 +80,7 @@ mnlr_cv_indexed <- function(X, y, index){
 #' @param y Response variable, as a factor.
 #' @param k Number of folds.
 #' @param n_reps Number of repeats.
-#' @param metrics Vector of strings with metrics to be obtained. Overall accuracy will always be returned. Options are "Sensitivity", "Specificity", "Pos Pred Value"       "Neg Pred Value", "Precision", "Recall", "F1", "Prevalence", "Detection Rate","Detection Prevalence" and "Balanced Accuracy".
+#' @param metrics Vector of strings with metrics to be obtained. Overall accuracy will always be returned. Options are "Sensitivity", "Specificity", "Pos Pred Value", "Neg Pred Value", "Precision", "Recall", "F1", "Prevalence", "Detection Rate","Detection Prevalence" and "Balanced Accuracy".
 #'
 #' @return List of length equal to that of `metrics` + 1, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds.
 #' @export
@@ -92,7 +92,7 @@ mnlr_kfold_cv <- function(X, y, k, n_reps = 5, metrics) {
     met <- list()
     folds <- split(sample(1:n), 1:k)
     for (fold_num in 1:k) {
-      cm <- cv_indexed(X, y, index = folds[[fold_num]])
+      cm <- mnlr_cv_indexed(X, y, index = folds[[fold_num]])
       overall_acc <- cm$overall[1]
 
       met[[fold_num]] <- list(overall_accuracy = overall_acc,
