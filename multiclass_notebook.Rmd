@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 rm(list = ls())
 ```
 
-In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We will focus here on the method of multinomial logistic regression.
+In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occured, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
 
 Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
 
@@ -38,14 +38,17 @@ theme_set(theme_bw())
 
 ## Feature Selection
 
-Due to the extremely large size of the full data set, it computationally intensive to download, store and use to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019.
+Due to the extremely large size of the full data set, it is computationally intensive to download, store and use to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019.
 
 ```{r}
 dat <- load_crimes_csv("chicri/data/processed/Crimes_2019_Location_Type.csv")
-# Replace this with API stuff
+# API stuff below should give same data set
+#dat <- load_crimes_API(year="2019")
+#vars_to_remove <- c("ID", "Case Number", "Block", "IUCR", "FBI Code", "Description", "Beat", "Ward", "Community Area", "Updated On", "Latitude", "Longitude", "Location", "Year")
+#dat <- process_data(dat, remove_vars = vars_to_remove)
 ```
 
-As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task. In order to do this we incorporating information from conduct exploratory data analysis, as well as considering computational cost.
+As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task. In order to do this we incorporate information from conducting exploratory data analysis, as well as considering computational cost.
 
 ### Primary Type
 
@@ -59,7 +62,7 @@ ggplot(dat) +
   geom_vline(xintercept=thr, colour="red")
 ```
 
-We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our response variable, with 7.57% of data values in the OTHER category.
+We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category.
 
 ```{r}
 dat$`Primary Type` <- fct_recode(dat$`Primary Type`,"OTHER" = "OTHER OFFENSE") %>%
@@ -72,7 +75,7 @@ ggplot(dat) +
 ```
 
 ### Location Description
-
+BEEP move this to an EDA abd just remove the variable earlier?
 We also wish to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. We begin by manually merging some of the levels. Namely, we merge BEEP hunker down on this BEEP
 check what other function combines?
 what is dif between sidewalk and street
@@ -82,7 +85,8 @@ maybe want to sit w rahil and do this
 BEEP
 In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER
 ```{r}
-dat$`Location Description` <- fct_infreq(dat$`Location Description`) %>% fct_rev()
+dat$`Location Description` <- fct_infreq(dat$`Location Description`) %>%
+  fct_rev()
 
 ggplot(dat) +
   geom_bar(aes(y = `Location Description`)) +
@@ -117,7 +121,7 @@ district_map <- district_map %>%
 plot_heat_map_d(district_map,"District")
 ```
 
-This district is made up of multiple different areas, as can be seen in the above. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
+This district is made up of multiple different areas, as can be seen in the geographical plots. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
 
 ```{r}
 dat$District <- dat$District %>%
@@ -137,8 +141,9 @@ dat$District <- fct_drop(dat$District)
 BEEP alternative plot not v pretty BEEP
 
 ```{r}
+# Get district labels and locations
 district_labels <- sort(as.integer(district_map$District))
-centroids <- district_map %>%
+district_markers <- district_map %>%
   arrange(as.integer(District)) %>%
   st_centroid() %>%
   st_coordinates() %>%
@@ -159,7 +164,7 @@ BEEP Source http://oururbantimes.com/district-stations/command-changes-12th-and-
 https://news.wttw.com/2020/04/30/chicago-police-opening-2-new-operation-areas-expand-resources-across-city
 
 ```{r}
-# TODO Way to make this a function or lkp?
+# Adding area groupings
 area1 <- c("002","003","008","009","007")
 area2 <- c("004","005","006","022")
 area3 <- c("001","012","018","019","020","024")
@@ -175,88 +180,121 @@ district_map$Area <- fct_collapse(as.factor(district_map$District), "AREA 1" = a
   fct_relevel(sort) %>%
   fct_relevel("31", after = Inf)
 
-plot_heat_map_d(district_map,"Area")
+#Plot for just area
+area_plot <- plot_heat_map_d(district_map,"Area")
+area_plot
 ```
 
-BEEP plot with district labels BEEP
 
 ```{r}
-ggplot() +
+# Plot with district labels and coloured area: labels for 31 are a bit vom
+area_plot_markers <- area_plot +
   geom_sf(data = district_map, aes(fill = Area)) +
     scale_fill_viridis_d(name = "Area",option = "magma") +
   geom_point(data = centroids, aes(X, Y), size = 7, shape=22, fill = "Grey", alpha=0.7) +
   geom_text(data = centroids, aes(X, Y, label = district_labels)) +
   theme_void()
+
+area_plot_markers
 ```
 
 
 ```{r}
+# Plot showing number of crimes in each district
 ggplot(dat) +
   geom_bar(aes(y = `District Area`))
 ```
 
-As we are choosing to encode location in our model via district, in order to reduce computational costs we will not consider the X and Y coordinates so drop them from our analysis.
+As we are choosing to encode location in our model via district and district area, in order to reduce computational costs and reduce redundancy in our model we will not consider the X and Y coordinates so drop them from our analysis.
 
 ```{r}
 dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
 ```
 
 
-### Date
+### Time and Date
 
-In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model. We then remove the `Date` variable.
+In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model.
 
-BEEP below code to encode time as a category
+In order to facilitate our second model, which attempts to predict the time of day at which a crime occurs, we also add the variable `Time of Day` which encodes the time as a categorical variable with the following levels:
+* `MORNING`: between 5am and 12 noon
+* `AFTERNOON`: between 12 noon and 5pm
+* `EVENING`: between 5pm and 9pm
+* `NIGHT`: between 9pm and 5am
+
+After this processing, we then remove the `Date` variable.
+
 ```{r}
-x <- lubridate::hour(dat$Date) + lubridate::minute(dat$Date)/60
-tod <- rep("NIGHT",length(x))
-for(i in 1:length(x)){
-  if(5 < x[i] & x[i] < 12){
+t <- lubridate::hour(dat$Date) + lubridate::minute(dat$Date)/60
+tod <- rep("NIGHT",length(t))
+for(i in 1:length(t)){
+  if(5 <= t[i] & t[i] < 12){
     tod[i] <- "MORNING"
     }
-  else if(12 < x[i] & x[i] < 17){
+  else if(12 <= t[i] & t[i] < 17){
     tod[i] <- "AFTERNOON"
     }
-  else if(17 < x[i] & x[i] < 21){
+  else if(17 <= t[i] & t[i] < 21){
     tod[i] <- "EVENING"
     }
 }
 tod <- as.factor(tod)
 ```
 
-BEEP note time of day here
 ```{r}
 dat <- dat %>%
   mutate(dat,
          Day = yday(dat$Date) / 365,
-         Time = (hour(dat$Date) + minute(dat$Date) / 60)/24,
+         Time = t/24,
          `Time of Day` = tod) %>%
   select(-Date)
 ```
 
 ```{r}
+# Plot showing number of crimes at times of day
 ggplot(dat) +
-  geom_bar(aes(y = `Time of Day`, colour=Arrest))
+  geom_bar(aes(y = `Time of Day`))
 ```
 
 
 ## Multinomial Logistic Regression
 
-We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We calculate various model performance metrics using the `confusionMatrix()` function from the `caret` package. Namely we focus here on calculating overall accuracy, as well as class specific sensitivity, specification and accuracy values. We implement 3-fold repeated cross validation, with $n = 5$ repeats, and calculate the average of each metric across all folds for each repeat.
+We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We calculate various model performance metrics using the `confusionMatrix()` function from the `caret` package. Namely we focus here on calculating overall accuracy and no-information rate (NIR), as well as class specific sensitivity, specification and accuracy values. We implement 5-fold repeated cross validation, with $n = 5$ repeats, and calculate the average of each metric across all folds for each repeat.
 
+BEEP No-information rate is the best case scenario of what would happen if we just assigned all points the one class: we want our model to do better than that.
 
 ```{r}
 #setting seed for reprodcibility
 set.seed(200899)
 metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
-
-# Splitting response data and different model variable sets
-y <- dat$`Primary Type`
-X_area <- dat %>% select(-c(`Primary Type`,`Location Description`,District, `Time of Day`))
-X_district <- dat %>% select(-c(`Primary Type`,`Location Description`,`District Area`, `Time of Day`))
 ```
 
 
+### Predicting Crime Type
+
+We begin by splitting our data into our response variable and the variables we want to include in our models. We look at three potential models:
+1) No Location: Primary Type ~ Arrest + Domestic + Day + Time
+2) District: Primary Type ~ Arrest + Domestic + Day + Time + District
+3) District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
+
+```{r}
+# Splitting response data and different model variable sets
+y <- dat$`Primary Type`
+X_noloc <- dat %>% select(c(Arrest, Domestic, Day, Time))
+X_area <- dat %>% select(c(Arrest, Domestic, Day, Time, `District Area`))
+X_district <- dat %>% select(c(Arrest, Domestic, Day, Time, District))
+```
+
+BEEP this has 80 variables BEEP
+```{r}
+mnlr_results_noloc <- mnlr_kfold_cv(X = X_noloc, y = y, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r}
+save(mnlr_results_noloc, file = "chicri/temp_data/mnlr_results_noloc.RData")
+```
+
+BEEP this has 144 variables BEEP
 ```{r}
 mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
@@ -265,7 +303,7 @@ mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics
 save(mnlr_results_area, file = "chicri/temp_data/mnlr_results_area.RData")
 ```
 
-
+BEEP this has 416 variables BEEP
 ```{r}
 mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
@@ -274,24 +312,27 @@ mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 5, n_reps = 5,
 save(mnlr_results_district, file = "chicri/temp_data/mnlr_results_district.RData")
 ```
 
+BEEP below loads from files on computer so that we can actually knit the pdf BEEP
 
 ```{r, include = FALSE}
+mnlr_results_noloc <- load("chicri/temp_data/mnlr_results_noloc.RData")
 mnlr_results_area <- load("chicri/temp_data/mnlr_results_area.RData")
 mnlr_results_district <-load("chicri/temp_data/mnlr_results_district.RData")
 ```
-if want to look more at model fit again
+
+BEEP need to get this stuff into a table so I can talk about the results and find the best model / talk about interpretation (input would be good!)
+once best model, refit on an 80/20 split data set
+run confusionMatrix function
+plot confusion matrix using table from function
+
 
 ```{r}
+ind <- sample(2,10,replace=TRUE,prob = c(0.8,0.2))
+#BEEP make training and test sets
 mnlr <- multinom(`Primary Type` ~ .-District -`Location Description`, data=training)
 head(pp <- fitted(mnlr)) #Predictive probabilities
 coef(mnlr) #Coeffs
 ```
-
-can get eqn from models, gives log(p(class)/p(ref class)) = coeff*var + ...
-
-create confusion matrix from training data
-numbers on diag are correct predictions
-not sure if prop is correct here
 
 
 ```{r}
@@ -332,35 +373,26 @@ test_conf <- ggplot(confusion_df.test, aes(x=Actual, y = Predicted, fill=Freq)) 
 test_conf
 ```
 
+## Predicting Time of Crime
 
-look at what would happen if we just assigned all points one class: we want our model to do better than that
-
-```{r}
-t <- table(y$`Primary Type`) 
-t #data from training set
-t/sum(t)
-```
-
-
-a) Precision (tp / (tp + fp) ) measures the ability of a classifier to identify only the correct instances for each class.
-
-b) Recall (tp / (tp + fn)) is the ability of a classifier to find all correct instances per class.
-
-c) F1 score is a weighted harmonic mean of precision and recall normalized between 0 and 1. F score of 1 indicates a perfect balance as precision and the recall are inversely related. A high F1 score is useful where both high recall and precision is important.
-
-d) Support is the number of actual occurrences of the class in the test data set. Imbalanced support in the training data may indicate the need for stratified sampling or rebalancing.
+Same as previously but now time of day is response variable and we exclude Time from our model. This gives us the three models:
+1) No Location: Time of Day ~ Primary Type + Arrest + Domestic + Day
+2) District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
+3) District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
 
 ```{r}
-#setting seed for reprodcibility
+#setting seed for reproducibility
 set.seed(200899)
-metrics <- c("Sensitivity", "Specificity","Balanced Accuracy")
 
 # Splitting response data and different model variable sets
 y_tod <- dat$`Time of Day`
+X_tod_noloc <- dat %>% select(-c(Time,`Location Description`,District,`Time of Day`))
 X_tod_area <- dat %>% select(-c(Time,`Location Description`,District,`Time of Day`))
 X_tod_district <- dat %>% select(-c(Time,`Location Description`,`District Area`, `Time of Day`))
-tod_mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
-tod_mnlr_results_district <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
+tod_mnlr_results_noloc <- mnlr_kfold_cv(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+tod_mnlr_results_area <- mnlr_kfold_cv(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+tod_mnlr_results_district <- mnlr_kfold_cv(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
 
+BEEP need to run the above and save
 
