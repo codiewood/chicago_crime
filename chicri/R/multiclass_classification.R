@@ -3,6 +3,7 @@
 #' @import ggplot2
 #' @import tidyverse
 #' @import caret
+#' @importFrom stats pnorm predict
 NULL
 
 #' Significance test for features
@@ -17,7 +18,7 @@ NULL
 #' @export
 significance_test <- function(model,alpha = 0.05){
   z <- summary(model)$coefficients/summary(model)$standard.errors
-  p <- (1 - pnorm(abs(z), 0, 1)) * 2
+  p <- (1 - stats::pnorm(abs(z), 0, 1)) * 2
   sig <- colSums(p < alpha) != 0
   return(list(zstat = z,pvals = p, significant_features = sig))
 }
@@ -68,43 +69,48 @@ mnlr_cv_indexed <- function(X, y, index){
   model <- multinom(y ~ ., data=training)
 
   # Predict on test data
-  pred.test <- predict(model, X_testing, type="class")
+  pred.test <- stats::predict(model, X_testing, type="class")
   # Obtain metrics
-  conf.test <- confusionMatrix(pred.test,y_testing,mode="everything")
+  conf.test <- caret::confusionMatrix(pred.test,y_testing,mode="everything")
   return(conf.test)
 }
 
-#' K-fold cross-validation for multinomial regression
+#' K-fold cross-validation metrics for multinomial regression.
 #'
 #' @param X Data to be used, not including the response variable or any variables not for use in model.
 #' @param y Response variable, as a factor.
 #' @param k Number of folds.
 #' @param n_reps Number of repeats.
-#' @param metrics Vector of strings with metrics to be obtained. Overall accuracy will always be returned. Options are "Sensitivity", "Specificity", "Pos Pred Value", "Neg Pred Value", "Precision", "Recall", "F1", "Prevalence", "Detection Rate","Detection Prevalence" and "Balanced Accuracy".
+#' @param metrics Vector of strings with metrics to be obtained. Overall accuracy, no information rate (NIR) and the p value for accuracy > NIR will always be returned. Options are "Sensitivity", "Specificity", "Pos Pred Value", "Neg Pred Value", "Precision", "Recall", "F1", "Prevalence", "Detection Rate","Detection Prevalence" and "Balanced Accuracy".
 #'
-#' @return List of length equal to that of `metrics` + 1, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds.
+#' @return List containing two elements: a list of length equal to that of `metrics` + 3, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds, and a list of length equal to `n_reps`, containing the metrics for each of the `k` folds.
 #' @export
 mnlr_kfold_cv <- function(X, y, k, n_reps = 5, metrics) {
   n <- nrow(X)
   m <- length(metrics)
   metric_list <- list()
-  for (i in 1:n_reps) {
+  for (rep_num in 1:n_reps) {
     met <- list()
     folds <- split(sample(1:n), 1:k)
     for (fold_num in 1:k) {
       cm <- mnlr_cv_indexed(X, y, index = folds[[fold_num]])
       overall_acc <- cm$overall[1]
+      no_info_rate <- cm$overall[5]
+      pval <- cm$overall[6]
 
       met[[fold_num]] <- list(overall_accuracy = overall_acc,
+                              NIR = no_info_rate,
+                              accuracy.NIR_pval = pval,
                        performance_measures = cm$byClass[,metrics])
     }
-    metric_list[[i]] <- met
+    metric_list[[rep_num]] <- met
   }
 
   # Average the list of metrics
   class_names <- levels(y)
   c <- length(class_names)
   mean_metrics <- list()
+
   # Average overall accuracy
   mean_metrics[[1]] <- numeric(n_reps)
   for (rep_num in 1:n_reps) {
@@ -112,19 +118,37 @@ mnlr_kfold_cv <- function(X, y, k, n_reps = 5, metrics) {
       unlist() %>%
       mean()
   }
+
+  # Average NIR
+  mean_metrics[[2]] <- numeric(n_reps)
+  for (rep_num in 1:n_reps) {
+    mean_metrics[[2]][rep_num] <- lapply(1:k, function(fold_num) metric_list[[rep_num]][[fold_num]]$NIR) %>%
+      unlist() %>%
+      mean()
+  }
+
+  # Average Acc > NIR P-value
+  mean_metrics[[3]] <- numeric(n_reps)
+  for (rep_num in 1:n_reps) {
+    mean_metrics[[3]][rep_num] <- lapply(1:k, function(fold_num) metric_list[[rep_num]][[fold_num]]$accuracy.NIR_pval) %>%
+      unlist() %>%
+      mean()
+  }
+
   # Average class specific measures
   for (met_num in 1:m){
-    mean_metrics[[met_num+1]] <- list()
+    mean_metrics[[met_num+3]] <- list()
     for(class_num in 1:c){
-      mean_metrics[[met_num+1]][[class_num]] <- numeric(n_reps)
+      mean_metrics[[met_num+3]][[class_num]] <- numeric(n_reps)
       for(rep_num in 1:n_reps){
-        mean_metrics[[met_num+1]][[class_num]][rep_num] <- lapply(1:k, function(fold_num) metric_list[[rep_num]][[fold_num]]$performance_measures[class_num,met_num]) %>%
+        mean_metrics[[met_num+3]][[class_num]][rep_num] <- lapply(1:k, function(fold_num) metric_list[[rep_num]][[fold_num]]$performance_measures[class_num,met_num]) %>%
           unlist() %>%
           mean()
       }
     }
-    names(mean_metrics[[met_num+1]]) <- class_names
+    names(mean_metrics[[met_num+3]]) <- class_names
   }
-  names(mean_metrics) <- c("Overall Accuracy",metrics)
-  return(mean_metrics)
+  names(mean_metrics) <- c("Overall Accuracy", "NIR", "P-value (Acc > NIR)",metrics)
+  return(list(mean_metrics = mean_metrics, all_metrics = metric_list))
 }
+

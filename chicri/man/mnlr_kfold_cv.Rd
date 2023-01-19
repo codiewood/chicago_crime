@@ -2,7 +2,7 @@
 % Please edit documentation in R/multiclass_classification.R
 \name{mnlr_kfold_cv}
 \alias{mnlr_kfold_cv}
-\title{K-fold cross-validation for multinomial regression}
+\title{K-fold cross-validation metrics for multinomial regression.}
 \usage{
 mnlr_kfold_cv(X, y, k, n_reps = 5, metrics)
 }
@@ -15,11 +15,11 @@ mnlr_kfold_cv(X, y, k, n_reps = 5, metrics)
 
 \item{n_reps}{Number of repeats.}
 
-\item{metrics}{Vector of strings with metrics to be obtained. Overall accuracy will always be returned. Options are "Sensitivity", "Specificity", "Pos Pred Value"       "Neg Pred Value", "Precision", "Recall", "F1", "Prevalence", "Detection Rate","Detection Prevalence" and "Balanced Accuracy".}
+\item{metrics}{Vector of strings with metrics to be obtained. Overall accuracy, no information rate (NIR) and the p value for accuracy > NIR will always be returned. Options are "Sensitivity", "Specificity", "Pos Pred Value", "Neg Pred Value", "Precision", "Recall", "F1", "Prevalence", "Detection Rate","Detection Prevalence" and "Balanced Accuracy".}
 }
 \value{
-List of length equal to that of `metrics` + 1, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds.
+List containing two elements: a list of length equal to that of `metrics` + 3, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds, and a list of length equal to `n_reps`, containing the metrics for each of the `k` folds.
 }
 \description{
-K-fold cross-validation for multinomial regression
+K-fold cross-validation metrics for multinomial regression.
 }
