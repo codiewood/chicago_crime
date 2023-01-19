@@ -5,6 +5,9 @@ output:
   html_document: default
 date: "2023-01-09"
 ---
+```{r}
+rm(list = ls())
+```
 
 ```{r warning=FALSE}
 library(plyr)
