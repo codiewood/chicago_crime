@@ -1,0 +1,214 @@
+---
+title: "project"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-01-09"
+---
+
+```{r}
+library(plyr)
+library(tidyr)
+library(dplyr)
+library(lubridate)
+library(forcats)
+library(stringr)
+library(readr)
+library(boot)
+library(caret)
+
+data_all <- read_csv('Crimes_2019.csv',show_col_types = FALSE)
+
+data <- data_all %>% select(-c(ID, `Case Number`, Block, IUCR, Description, Beat, Ward, `Community Area`, `Updated On`, Latitude, Longitude, Location, Year, `Location Description`))
+
+data$Date <- parse_datetime(data$Date, format = "%m/%d/%Y %I:%M:%S %p")
+
+```
+
+```{r}
+othering <- function(factor_vec, threshold){
+  level <- levels(factor_vec) 
+  tab <- tabulate(factor_vec)
+  other.levels <- level[ tab < threshold]
+  factor_vec <- fct_collapse(factor_vec, "Other" = other.levels)
+  perc <- length(factor_vec[factor_vec == 'Other'])*100/length(factor_vec)
+  print(perc)
+  return(factor_vec)
+  
+}
+```
+
+
+```{r}
+crimes <- drop_na(data_all)
+
+crimes$Date <- parse_datetime(crimes$Date, format = "%m/%d/%Y %I:%M:%S %p")
+
+crimes <- crimes %>% select(-c(ID, `Case Number`, Block, IUCR, Description, Beat, Ward, `Community Area`, `Updated On`, Latitude, Longitude, Location, Year, 'FBI Code', 'Location Description'))
+  
+time.data <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = hour(crimes$Date)) %>% group_by(Hour) %>% count(Arrest)
+
+crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
+
+crimes[c('Primary Type', 'District', 'Arrest', 'Domestic','wkday')] <- lapply(crimes[c('Primary Type', 'District', 'Arrest', 'Domestic','wkday')],as.factor)
+
+crimes$District[crimes$District == '031'] <- NA
+
+crimes<- drop_na(crimes)
+
+crimes<- droplevels(crimes)
+
+levels(crimes$`Primary Type`)[levels(crimes$`Primary Type`)=="OTHER OFFENSE"] <- "Other"
+
+crimes$`Primary Type` <- othering(crimes$`Primary Type`, 500)
+
+crimes<- droplevels(crimes)
+```
+
+
+```{r}
+#calculate proportion of crimes resulted in arrest in each hour
+proparr <- c()
+arr <- c()
+tot <- c()
+for (i in 1:(nrow(time.data)/2) ){
+  prop <- time.data$n[2*i]/(time.data$n[2*i-1] + time.data$n[2*i]) 
+  proparr <- c(proparr,prop)
+  arr <-c(arr, time.data$n[2*i])
+  tot <- c(tot,time.data$n[2*i-1] + time.data$n[2*i])
+}
+
+```
+
+```{r}
+propdf <- data.frame(cbind(0:23,proparr))
+arrdf <- data.frame(cbind(0:23,arr, tot))
+colnames(arrdf) <- c('Hour', 'Arr', 'Total')
+colnames(propdf) <- c('Hour', 'ArrProp')
+```
+
+```{r}
+library(ggplot2)
+library(cowplot)
+plot1 <- ggplot(propdf) + geom_point(aes(x =Hour, y = ArrProp)) + labs(y = 'Proportion of Arrests', x= 'Hour of Day')
+
+plot2 <- ggplot(arrdf) + geom_point(aes(x =Hour, y = Arr, color = 'Arrests' )) + geom_point(aes(x =Hour, y = Total, color = 'Total Crimes'))+ labs(y = 'Crimes', x= 'Hour of Day')+ theme(legend.position = "bottom")
+
+plot_grid(plot1, plot2, nrow=2)
+```
+
+
+
+```{r}
+library(e1071)  
+library(caret)
+#taking sample as SVM scales badly with large data sets
+
+srows <- sample(1:nrow(crimes), 25000, replace = FALSE)
+ydata <- crimes$Arrest
+ydata <- ydata[srows] 
+xdata <- crimes %>% select(-Arrest) 
+xdata <- xdata[srows,]
+
+#Creating SVM model with Sample
+mf <- model.frame(ydata ~ . - 1, cbind(ydata,xdata)) 
+mt <- terms(mf)
+X <- model.matrix(mt, mf)
+Y <- model.response(mf)
+
+
+
+#svm_tuned <- tune(e1071::svm, Y ~ ., train.x = X, train.y = Y, 
+ #                 ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)),
+  #                tunecontrol = tune.control(nrepeat = 3, 
+   #                                          sampling = "cross", 
+    #                                         cross = 5),
+     #             kernel = "radial", type = "C-classification")
+```
+
+```{r}
+
+svm.model <- svm(X, Y, cross = 3, cost = 16, gamma = 0.03)
+
+```
+
+
+```{r echo=FALSE}
+#log.model <- cv.glm(as.factor(Arrest)~.,data = crimes ,family = "binomial", K= 3)
+
+log.model <- train(Arrest ~ .,
+               data = crimes,
+               trControl = trainControl(method = 'cv',3),
+               method = "glm",
+               family=binomial())
+```
+
+
+```{r echo=FALSE}
+#Creating SVM testing data
+mftest <- model.frame(crimes$Arrest ~ . - 1, crimes) 
+mttest <- terms(mftest)
+Xtest <- model.matrix(mttest, mftest)
+Ytest <- model.response(mftest)
+
+confusionMatrix(reference = Ytest, data = predict(svm.model, newdata = Xtest), positive = 'TRUE')
+confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive = 'TRUE')
+```
+
+```{r echo=TRUE}
+library(ROCit)
+roc <- rocit(score = log.model[["finalModel"]][["fitted.values"]], class = log.model[["finalModel"]][["y"]])
+measure <- measureit(roc,measure = c("ACC", "SENS", "SPEC"))
+```
+
+```{r echo=TRUE}
+ggplot() + geom_point(aes(x = measure$TP, y = measure$TN)) + labs(title = 'ROC',x = 'True Positive', y = 'True Negative')
+
+ggplot() + geom_point(aes(x = 1 - measure$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity')
+```
+
+```{r eval=FALSE, include=FALSE}
+ggplotROC <- function(fitval, y){
+  roc <- rocit(score = fitval, class = y)
+  meas <- measureit(roc,measure = c("ACC", "SENS", "SPEC"))                   
+  return(ggplot() + geom_line(aes(x = 1 - meas$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity'))
+}
+ggplotROC(log.model[["finalModel"]][["fitted.values"]],log.model[["finalModel"]][["y"]])
+
+AUC <- function(fitval,y){
+  roc_mod <- rocit(score = fitval , class = y)
+  return(roc_mod[['AUC']])
+}
+AUC(log.model[["finalModel"]][["fitted.values"]], log.model[["finalModel"]][["y"]])
+```
+
+Using ROC in this case has some theoretical advantages, it does tend to prefer models that obtain True positives- this  wouldn't be frowned upon as an overestimation allows redundancy preparation for the services needed to deal with arrests.
+
+```{r eval=FALSE, warning=FALSE, include=FALSE}
+roc$AUC
+summary(roc)
+```
+
+```{r eval=FALSE, include=FALSE}
+library(mlr3verse)
+learner = lrn("classif.svm", type = "C-classification", kernel = "radial")
+
+learner$param_set$values$cost = to_tune(0.5, 20)
+learner$param_set$values$gamma = to_tune(2^{-9}, 2)
+
+svmcrime <- crimes
+svmcrime$wkday <- as.numeric(svmcrime$wkday)
+svmcrime <- svmcrime %>% select(-c(Domestic,Primary.Type, District))
+colnames(svmcrime) <- gsub(' ', '.', colnames(svmcrime))
+crime_task = as_task_classif(svmcrime, target = 'Arrest')
+skimr::skim(crime_task$data())
+instance = tune(
+  method = tnr("grid_search", resolution = 5),
+  task = crime_task,
+  learner = learner,
+  resampling = rsmp("cv", folds = 3),
+  measure = msr("classif.auc"),
+  resolution = 5
+)
+```
+
