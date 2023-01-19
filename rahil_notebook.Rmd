@@ -6,7 +6,7 @@ output:
 date: "2023-01-09"
 ---
 
-```{r}
+```{r warning=FALSE}
 library(plyr)
 library(tidyr)
 detach(package:plyr) 
@@ -70,7 +70,7 @@ crimes$`Primary Type` <- othering(crimes$`Primary Type`, 500)
 
 crimes<- droplevels(crimes)
 ```
-For some EDA on the importance of including time data in our model for classifying likelihood of arrest, we plot the probability of arrest for each hour (using 2019 data), we see that the proportion of arrests are inconsistent depending on time - this could be due to types of crimes expected at each time. This makes it seem significant to at least include in the model.BEEP
+For some EDA on the importance of including time data in our model for classifying likelihood of arrest, we plot the probability of arrest for each hour (using 2019 data), we see that the proportion of arrests are inconsistent depending on time - this could be due to types of crimes expected at each time. This makes it seem significant to at least include in the model. BEEP
 
 ```{r}
 #calculate proportion of crimes resulted in arrest in each hour
@@ -93,7 +93,7 @@ colnames(arrdf) <- c('Hour', 'Arr', 'Total')
 colnames(propdf) <- c('Hour', 'ArrProp')
 ```
 
-```{r}
+```{r warning=FALSE}
 library(ggplot2)
 library(cowplot)
 plot1 <- ggplot(propdf) + geom_point(aes(x =Hour, y = ArrProp)) + labs(y = 'Proportion of Arrests', x= 'Hour of Day')
@@ -103,28 +103,14 @@ plot2 <- ggplot(arrdf) + geom_point(aes(x =Hour, y = Arr, color = 'Arrests' )) +
 plot_grid(plot1, plot2, nrow=2)
 ```
 
-Here I use the Caret Library to Train a SVM.
+Here I use the Caret Library to train some SVM models and a Logistic Regression Model.
 
 ```{r}
 library(e1071)  
 library(caret)
-#taking sample as SVM scales badly with large data sets
-
-srows <- sample(1:nrow(crimes), 25000, replace = FALSE)
-ydata <- crimes$Arrest
-ydata <- ydata[srows] 
-xdata <- crimes %>% select(-Arrest) 
-xdata <- xdata[srows,]
-
-#Creating SVM model with Sample
-mf <- model.frame(ydata ~ . - 1, cbind(ydata,xdata)) 
-mt <- terms(mf)
-X <- model.matrix(mt, mf)
-Y <- model.response(mf)
-
 ```
 
-We will attempt to fit our SVM using 2 different training sets. As SVM models scale badly with data points we have to train our models on samples of our data set (which has approximately $250,000$ data points). There are a few methodologies when taking these samples, we could randomly sample our data, we could also take a representative sample and we could also try having equal amount of samples from each of the classes.
+We will attempt to fit our SVM using 2 different training sets. As SVM models scale badly with data points we have to train our models on samples of our data set (which has greater than $250,000$ data points). There are a few methodologies when taking these samples, we could randomly sample our data, we could also take a representative sample and we could also try having equal amount of samples from each of the classes.
 
 ```{r}
 crimes %>% count(Arrest)
@@ -171,7 +157,7 @@ First we use the `downSample` function from `caret` this takes a sample of our d
 down_sample <- downSample(x = crimes, y = crimes$Arrest)
 down_sample %>% count(Arrest)
 ```
-We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample.
+We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample).
 
 ```{r}
 trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
@@ -247,6 +233,7 @@ There are many different ways to measure
 $$Accuracy = Pr(\hat{Y} = Y)$$
 $$Sensitivity = Pr(\hat{Y} = 1 | Y = 1) = Pr(\text{True Positive})$$
 $$Specificity = Pr(\hat{Y} = 0| Y = 0) = Pr(\text{True Negative})$$
+$$\text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2}$$
 
 An interesting benchmark for the usefulness of the model is the No-Information Rate which is the accuracy if we just guess for each data point is the largest percentage data point. For the crimes dataset that is $0.7828$. 
 
@@ -274,7 +261,7 @@ for (testrow in 1:10){
   u <- confusionMatrix(data = predict(svm.modelU, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   d <- confusionMatrix(data = predict(svm.modelD, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   l <- confusionMatrix(data = predict(log.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
-  r <- confusionMatrix(data = predict(svm.modelU, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
+  r <- confusionMatrix(data = predict(svm.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   
   up[testrow, ] <- c(u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
                u[["byClass"]][["Specificity"]], u[["byClass"]][["Balanced Accuracy"]])
@@ -319,35 +306,15 @@ ggplot(mapping = aes(ACC,BALACC, color = Model)) +
 
 
 ```{r}
-
+ModelQual <- cbind(Model = as.character(), blank)
+ModelQual[1,] <- c('LogReg', logistic %>% summarise(across(everything(), mean)))
+ModelQual[2,] <- c('DownSVM', down %>% summarise(across(everything(), mean)))
+ModelQual[3,] <- c('UpSVM', up %>% summarise(across(everything(), mean)))
+ModelQual[4,] <- c('SVM', repSVM %>% summarise(across(everything(), mean)))
+ModelQual
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+SOME POINTLESS ROCIT STUFF MIGHT USE MIGHT NOT  BEEP
 
 ```{r echo=TRUE}
 library(ROCit)
@@ -376,7 +343,7 @@ AUC <- function(fitval,y){
 
 Using ROC in this case has some theoretical advantages, it does tend to prefer models that obtain True positives- this  wouldn't be frowned upon as an overestimation allows redundancy preparation for the services needed to deal with arrests.
 
-```{r eval=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, warning=FALSE}
 roc$AUC
 summary(roc)
 ```
