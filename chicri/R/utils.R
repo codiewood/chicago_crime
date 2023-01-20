@@ -38,6 +38,23 @@ process_data <- function(data, remove_vars = NULL){
   return(data)
 }
 
+
+short_to_long <- function(string){
+  string <- str_replace_all(string, "_", " ")
+  string <- str_to_title(string)
+  return(string)
+}
+
+
+long_to_short <- function(string){
+  string <- str_replace_all(string, " ", "_")
+  string <- tolower(string)
+  return(string)
+}
+
+
+
+
 #' Renames data variable names to long format, with spaces, from short, with underscores
 #'
 #' @param data The data set with the variables to be renamed
@@ -46,8 +63,11 @@ process_data <- function(data, remove_vars = NULL){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
-  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$long_name[match(short_names, var_lkp$short_name)]
+  long_names <- vector(length = length(short_names))
+  for (i in 1:length(short_names)){
+    long_names[i] <- short_to_long(short_names[i])
+  }
+  colnames(data) <- long_names
   return(data)
 }
 
@@ -59,8 +79,11 @@ long_variables <- function(data){
 #' @export
 short_variables <- function(data){
   long_names <- colnames(data)
-  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$short_name[match(long_names, var_lkp$long_name)]
+  short_names <- vector(length = length(long_names))
+  for (i in 1:length(short_names)){
+    short_names[i] <- long_to_short(long_names[i])
+  }
+  colnames(data) <- short_names
   return(data)
 }
 
@@ -125,4 +148,78 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
                        digits = 2), "% of data values. \n"))
     }
     return(factor_vec)
+}
+
+
+
+
+count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =NULL, date_level = "month"){
+
+
+  if (!all(names(df) == tolower(names(df)))){
+    df <- short_variables(df)
+  }
+
+
+
+  if (is.null(date_start)){ #if no start date, set to before first observation in data
+    date_start <- as.Date("01-01-2000")
+  }
+  if (is.null(date_end)){ #if no end date, set to current date
+    date_end <- Sys.Date()
+  }
+
+  if (is.null(location_level)){ #if not including location
+    if (date_level == "day"){ #if day selected
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date), yday = day(date)) %>%
+        group_by(year, month,day) %>%
+        dplyr::summarise(count = n())
+    } else if (date_level == "week") { #if week selected
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        group_by(week_start) %>%
+        dplyr::summarise(count = n()) %>%
+        mutate(year = year(week_start), week = week(week_start))
+    } else if (date_level == "month"){ #if month selected
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date)) %>%
+        group_by(year, month) %>%
+        dplyr::summarise(count = n())
+    }
+  } else { #if we do include location
+
+    if (!(location_level == tolower(location_level))){
+      location_level <- long_to_short(location_level)
+    }
+    location_level <- enquo(location_level)
+
+    if (date_level == "day"){
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date), day = day(date)) %>%
+        group_by(year, month,day, !!eval(location_level)) %>%
+        dplyr::summarise(count = n())
+    } else if (date_level == "week") {
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        group_by(week_start, !!eval(location_level)) %>%
+        dplyr::summarise(count = n()) %>%
+        mutate(year = year(week_start), week = week(week_start))
+    } else if (date_level == "month"){
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date)) %>%
+        group_by(year, month, !!eval(location_level)) %>%
+        dplyr::summarise(count = n())
+    }
+  }
+
+  count_dat <- long_variables(count_dat)
+
+  return(count_dat)
 }
