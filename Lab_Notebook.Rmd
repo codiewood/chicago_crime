@@ -1,0 +1,45 @@
+---
+title: "Using Regression and Classification Techniques on Chicago Crime Dataset"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-01-09"
+---
+
+# Introduction
+
+## Package Description
+
+
+# Exploratory Data Analysis
+Our data can be loaded using the `load_crimes_API()` function from the `chicri` package:
+```{r, eval=FALSE}
+df <- load_crimes_API(year = NULL)
+```
+
+```{r, include = FALSE}
+df<- read_csv("~/Desktop/project/data_API.csv", show_col_types = FALSE)
+df <- df %>% long_variables()
+```
+
+## Variables to Keep
+
+# Predicting Crimes Spatially and Temporally 
+For this task we implement a general additive model (GAM) using the `gam()` function from the `mvgc` package.
+
+## Weekly and Monthly Predictions
+
+We use the `count_cases()` function to obtain weekly and monthly counts
+```{r}
+week_data <- df %>% count_cases(date_level = "week")
+
+
+```
+
+
+
+
+
+
+
+
