@@ -13,15 +13,14 @@ NULL
 
 #' Process Chicago Crime data
 #' @description
-#' Converts columns to the correct types, removing specified variables, formatting the date variable and merging the `Primary Type` categories of "CRIM SEXUAL ASSAULT" and "CRIMINAL SEXUAL ASSAULT".
+#' Converts columns to the correct types, formatting the date variable and merging the `Primary Type` categories of "CRIM SEXUAL ASSAULT" and "CRIMINAL SEXUAL ASSAULT".
 #'
 #' @param data Data set to process, in tibble format and with long variable names
-#' @param remove_vars A vector containing the long names, with spaces, of the variables to be removed. If NULL, no variables removed. Default is NULL.
 #'
 #' @return Processed data
 #'
 #' @export
-process_data <- function(data, remove_vars = NULL){
+process_data <- function(data){
   data <- data %>%
     readr::type_convert(col_types = list(Arrest = readr::col_logical(),
                                          Domestic = readr::col_logical(),
@@ -33,9 +32,7 @@ process_data <- function(data, remove_vars = NULL){
                                          District = readr::col_factor(),
                                          `Location Description` = readr::col_factor(),
                                          `FBI Code` = readr::col_factor())) %>%
-    dplyr::select(-all_of(remove_vars)) %>%
-    dplyr::mutate(Date = readr::parse_datetime(data$Date, format = "%m/%d/%Y %I:%M:%S %p")) %>%
-    tidyr::drop_na(data)
+    tidyr::drop_na()
   data$`Primary Type` <- forcats::fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
   return(data)
 }
@@ -74,7 +71,18 @@ long_variables <- function(data){
   short_names <- colnames(data)
   long_names <- vector(length = length(short_names))
   for (i in 1:length(short_names)){
-    long_names[i] <- short_to_long(short_names[i])
+    if(short_names[i] == "iucr"){
+      long_names[i] <- "IUCR"
+    }
+    else if(short_names[i] == "fbi_code"){
+      long_names[i] <- "FBI Code"
+    }
+    else if(short_names[i] == "id"){
+      long_names[i] <- "ID"
+    }
+    else{
+      long_names[i] <- short_to_long(short_names[i])
+    }
   }
   colnames(data) <- long_names
   return(data)
