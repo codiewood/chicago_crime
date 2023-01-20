@@ -84,7 +84,7 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
 
     if (date_level == "day"){
       count_dat <- df %>% 
-        filter(date > date_start, date < date_end) %>% 
+        filter(Date > date_start, Date < date_end) %>% 
         mutate(year = year(date), month = month(date), day = day(date)) %>%
         group_by(year, month,day, !!eval(location_level)) %>%
         dplyr::summarise(count = n())
