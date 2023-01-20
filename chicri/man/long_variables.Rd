@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{long_variables}
 \alias{long_variables}
-\title{Renames data variable names to long format from short}
+\title{Renames data variable names to long format, with spaces, from short, with dots}
 \usage{
 long_variables(data)
 }
@@ -13,5 +13,5 @@ long_variables(data)
 data frame with long variable names
 }
 \description{
-Renames data variable names to long format from short
+Renames data variable names to long format, with spaces, from short, with dots
 }
