@@ -109,3 +109,63 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
     }
     return(factor_vec)
 }
+
+
+
+count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =NULL, date_level = "month"){
+  location_level <- enquo(location_level)
+
+  if (is.null(date_start)){ #if no start date, set to before first observation in data
+    date_start <- as.Date("01-01-2000")
+  }
+  if (is.null(date_end)){ #if no end date, set to current date
+    date_end <- Sys.Date()
+  }
+
+  if (is.null(location_level)){ #if not including location
+    if (date_level == "day"){ #if day selected
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date), yday = day(date)) %>%
+        group_by(year, month,day) %>%
+        dplyr::summarise(count = n())
+    } else if (date_level == "week") { #if week selected
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        group_by(week_start) %>%
+        dplyr::summarise(count = n()) %>%
+        mutate(year = year(week_start), week = week(week_start))
+    } else if (date_level == "month"){ #if month selected
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date)) %>%
+        group_by(year, month) %>%
+        dplyr::summarise(count = n())
+    }
+  } else { #if we do include location
+
+    if (date_level == "day"){
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date), day = day(date)) %>%
+        group_by(year, month,day, !!eval(location_level)) %>%
+        dplyr::summarise(count = n())
+    } else if (date_level == "week") {
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        group_by(week_start, !!eval(location_level)) %>%
+        dplyr::summarise(count = n()) %>%
+        mutate(year = year(week_start), week = week(week_start))
+    } else if (date_level == "month"){
+      count_dat <- df %>%
+        filter(date > date_start, date < date_end) %>%
+        mutate(year = year(date), month = month(date)) %>%
+        group_by(year, month, !!eval(location_level)) %>%
+        dplyr::summarise(count = n())
+    }
+  }
+
+  return(count_dat)
+}
