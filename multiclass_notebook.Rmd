@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Multi-class Classification
@@ -65,6 +65,7 @@ ggplot(dat) +
 We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category.
 
 ```{r}
+# Reordering and othering factor levels (for plots and analysis purposes)
 dat$`Primary Type` <- fct_recode(dat$`Primary Type`,"OTHER" = "OTHER OFFENSE") %>%
   othering(thr,print_summary = T) %>%
   fct_infreq() %>%
@@ -75,16 +76,11 @@ ggplot(dat) +
 ```
 
 ### Location Description
-BEEP move this to an EDA abd just remove the variable earlier?
-We also wish to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. We begin by manually merging some of the levels. Namely, we merge BEEP hunker down on this BEEP
-check what other function combines?
-what is dif between sidewalk and street
-look for levels which are same but dif spacing
-apartment vs residence
-maybe want to sit w rahil and do this
-BEEP
+BEEP move this to an EDA and just remove the variable earlier?
+We also wish to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. 
 In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER
 ```{r}
+# Reordering factor levels (for plots and analysis purposes)
 dat$`Location Description` <- fct_infreq(dat$`Location Description`) %>%
   fct_rev()
 
@@ -101,15 +97,13 @@ dat$`Location Description` <- fct_infreq(dat$`Location Description`) %>% fct_rev
 ggplot(dat) +
   geom_bar(aes(y = `Location Description`))
 ```
-BEEP
 
 
 ### District
 
 ```{r}
 # Loading mapping data for plots
-district_map <- read.socrata("https://data.cityofchicago.org/resource/24zt-jpfn.csv")
-#district_map <- read_csv("chicri/data/raw/PoliceDistrictDec2012.csv")
+district_map <- RSocrata::read.socrata("https://data.cityofchicago.org/resource/24zt-jpfn.csv")
 ```
 
 In order to include spatial information, we consider the District variable. We observe that all districts experience reasonable numbers of crimes to be incorporated into analysis, with the exception of District 031. 
@@ -124,6 +118,7 @@ plot_heat_map_d(district_map,"District")
 This district is made up of multiple different areas, as can be seen in the geographical plots. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
 
 ```{r}
+# Reordering factor levels (for plots and analysis purposes)
 dat$District <- dat$District %>%
   fct_infreq() %>%
   fct_rev()
@@ -138,25 +133,6 @@ dat <- dat[dat$District != "031",]
 dat$District <- fct_drop(dat$District)
 ```
 
-BEEP alternative plot not v pretty BEEP
-
-```{r}
-# Get district labels and locations
-district_labels <- sort(as.integer(district_map$District))
-district_markers <- district_map %>%
-  arrange(as.integer(District)) %>%
-  st_centroid() %>%
-  st_coordinates() %>%
-  as_tibble() %>%
-  mutate(district_labels = district_labels)
-# Plot the locations of centroids on map
-centroids_plot <- ggplot() +
-  geom_sf(data = district_map) +
-  geom_point(data = centroids, aes(X, Y), size = 5, colour = "Plum") +
-  geom_text(data = centroids, aes(X, Y, label = district_labels)) +
-  theme_void()
-centroids_plot
-```
 In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. 
 
 BEEP Source http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts
@@ -176,7 +152,12 @@ dat$`District Area` <- fct_collapse(dat$District, "AREA 1" = area1, "AREA 2" = a
 
 
 ```{r}
-district_map$Area <- fct_collapse(as.factor(district_map$District), "AREA 1" = as.character(as.integer(area1)), "AREA 2" = as.character(as.integer(area2)), "AREA 3" = as.character(as.integer(area3)), "AREA 4"= as.character(as.integer(area4)), "AREA 5" = as.character(as.integer(area5))) %>%
+district_map$Area <- fct_collapse(as.factor(district_map$District),
+                                  "AREA 1" = as.character(as.integer(area1)),
+                                  "AREA 2" = as.character(as.integer(area2)),
+                                  "AREA 3" = as.character(as.integer(area3)),
+                                  "AREA 4"= as.character(as.integer(area4)),
+                                  "AREA 5" = as.character(as.integer(area5))) %>%
   fct_relevel(sort) %>%
   fct_relevel("31", after = Inf)
 
@@ -187,17 +168,25 @@ area_plot
 
 
 ```{r}
+# Get district labels and locations
+district_labels <- sort(as.integer(district_map$District))
+district_markers <- district_map %>%
+  arrange(as.integer(District)) %>%
+  st_centroid() %>%
+  st_coordinates() %>%
+  as_tibble() %>%
+  mutate(district_labels = district_labels)
+
 # Plot with district labels and coloured area: labels for 31 are a bit vom
 area_plot_markers <- area_plot +
   geom_sf(data = district_map, aes(fill = Area)) +
     scale_fill_viridis_d(name = "Area",option = "magma") +
-  geom_point(data = centroids, aes(X, Y), size = 7, shape=22, fill = "Grey", alpha=0.7) +
-  geom_text(data = centroids, aes(X, Y, label = district_labels)) +
+  geom_point(data = district_markers, aes(X, Y), size = 7, shape=22, fill = "Grey", alpha=0.7) +
+  geom_text(data = district_markers, aes(X, Y, label = district_labels)) +
   theme_void()
 
 area_plot_markers
 ```
-
 
 ```{r}
 # Plot showing number of crimes in each district
@@ -210,7 +199,6 @@ As we are choosing to encode location in our model via district and district are
 ```{r}
 dat <- select(dat, -c(`X Coordinate`,`Y Coordinate`))
 ```
-
 
 ### Time and Date
 
@@ -256,7 +244,6 @@ ggplot(dat) +
   geom_bar(aes(y = `Time of Day`))
 ```
 
-
 ## Multinomial Logistic Regression
 
 We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We calculate various model performance metrics using the `confusionMatrix()` function from the `caret` package. Namely we focus here on calculating overall accuracy and no-information rate (NIR), as well as class specific sensitivity, specification and accuracy values. We implement 5-fold repeated cross validation, with $n = 5$ repeats, and calculate the average of each metric across all folds for each repeat.
@@ -268,7 +255,6 @@ BEEP No-information rate is the best case scenario of what would happen if we ju
 set.seed(200899)
 metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
 ```
-
 
 ### Predicting Crime Type
 
@@ -285,97 +271,142 @@ X_area <- dat %>% select(c(Arrest, Domestic, Day, Time, `District Area`))
 X_district <- dat %>% select(c(Arrest, Domestic, Day, Time, District))
 ```
 
-BEEP this has 80 variables BEEP
-```{r}
-mnlr_results_noloc <- mnlr_kfold_cv(X = X_noloc, y = y, k = 5, n_reps = 5, metrics = metrics)
-```
+We evaluate the model performance using the `mnlr_kfold_cv.df()` function, which outputs a data frame containing the metrics as evaluated for the model fitted on each fold for each repeat. Our package also contains the `mnlr_kfold_cv.list()` function, which performs the same operations and outputs a list based format of our values, as well as their averages. We use the data frame function for our analysis, however, as its output can be easily manipulated to calculate averages, investigate metric distributions. Further, the data frame outputs can be easily converted into an easy to read table, ideal for producing result documentation, which the list output cannot.
 
-```{r}
-save(mnlr_results_noloc, file = "chicri/temp_data/mnlr_results_noloc.RData")
+BEEP this has 80 variables, is that worth mentioning BEEP
+```{r, eval=FALSE}
+mnlr_results_noloc.df <- mnlr_kfold_cv.df(X = X_noloc, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 BEEP this has 144 variables BEEP
-```{r}
-mnlr_results_area <- mnlr_kfold_cv(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
-```
-
-```{r}
-save(mnlr_results_area, file = "chicri/temp_data/mnlr_results_area.RData")
+```{r, eval = FALSE}
+mnlr_results_area.df <- mnlr_kfold_cv.df(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 BEEP this has 416 variables BEEP
-```{r}
-mnlr_results_district <- mnlr_kfold_cv(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
+```{r, eval=FALSE}
+mnlr_results_district.df <- mnlr_kfold_cv.df(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
-```{r}
-save(mnlr_results_district, file = "chicri/temp_data/mnlr_results_district.RData")
-```
-
-BEEP below loads from files on computer so that we can actually knit the pdf BEEP
+BEEP below loads from files on computer saved from prev run of code so that we can actually knit the pdf, variable names need to stay same BEEP
 
 ```{r, include = FALSE}
-mnlr_results_noloc <- load("chicri/temp_data/mnlr_results_noloc.RData")
-mnlr_results_area <- load("chicri/temp_data/mnlr_results_area.RData")
-mnlr_results_district <-load("chicri/temp_data/mnlr_results_district.RData")
-```
-
-BEEP need to get this stuff into a table so I can talk about the results and find the best model / talk about interpretation (input would be good!)
-once best model, refit on an 80/20 split data set
-run confusionMatrix function
-plot confusion matrix using table from function
-
-
-```{r}
-ind <- sample(2,10,replace=TRUE,prob = c(0.8,0.2))
-#BEEP make training and test sets
-mnlr <- multinom(`Primary Type` ~ .-District -`Location Description`, data=training)
-head(pp <- fitted(mnlr)) #Predictive probabilities
-coef(mnlr) #Coeffs
+load("chicri/temp_data/mnlr_results_noloc_df.RData")
+load("chicri/temp_data/mnlr_results_area_df.RData")
+load("chicri/temp_data/mnlr_results_district_df.RData")
 ```
 
 
 ```{r}
-pred <- predict(mnlr, training, type="class")
-tab <- table(Predicted=pred,
-             Actual=training$`Primary Type`)
+noloc_class_means <- mnlr_results_noloc.df$byclass %>%
+  dplyr::group_by(Class,Repeat) %>%
+  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                   "Average Specificity" = mean(Specificity),
+                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+noloc_class_means
+
+noloc_overall_means <- mnlr_results_noloc.df$overall %>%
+  dplyr::group_by(Repeat) %>%
+  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                   "Average NIR" = mean(NIR),
+                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+noloc_overall_means
+```
+BEEP note that the overall means all look the same because of rounding, they aren't actually all equal BEEP
+```{r}
+area_class_means <- mnlr_results_area.df$byclass %>%
+  dplyr::group_by(Class,Repeat) %>%
+  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                   "Average Specificity" = mean(Specificity),
+                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+area_class_means
+
+area_overall_means <- mnlr_results_area.df$overall %>%
+  dplyr::group_by(Repeat) %>%
+  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                   "Average NIR" = mean(NIR),
+                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+area_overall_means
+```
+
+```{r}
+district_class_means <- mnlr_results_district.df$byclass %>%
+  dplyr::group_by(Class,Repeat) %>%
+  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                   "Average Specificity" = mean(Specificity),
+                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+district_class_means
+
+district_overall_means <- mnlr_results_district.df$overall %>%
+  dplyr::group_by(Repeat) %>%
+  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                   "Average NIR" = mean(NIR),
+                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+district_overall_means
+```
+
+
+BEEP interpretations of the above and get into latex tables to put in report? BEEP
+
+BEEP think best model is using area because not much difference going to district and also has the advantage of lesser computational complexity so easier to run and interpret. Probably explain this in latex report not here? BEEP
+
+
+```{r, eval=FALSE}
+set.seed(1)
+ind <- sample(2,nrow(dat),replace=TRUE, prob = c(0.8,0.2))
+index <- which(ind == 2)
+mnlr <- mnlr_cv_indexed(X_area,y,index,return_model = TRUE)
+```
+BEEP load for knitting purposes BEEP
+```{r, include=FALSE}
+load("chicri/temp_data/mnlr_area_model.RData")
+```
+We can look at a subset of the predictive probabilities produced by the model, as well as the coefficient values, in order to interpret the relationships between our observed variables and the log odds of a particular class.
+```{r}
+head(pp <- fitted(mnlr$model)) #Predictive probabilities
+```
+
+```{r}
+coef(mnlr$model)
+```
+
+```{r}
+# Extract confusion matrix for plot
+tab <- mnlr$conf.matrix$table
 confusion_df <- as.data.frame(tab)
-```
 
-
-```{r}
-training_conf <- ggplot(confusion_df, aes(x=Actual, y = Predicted, fill=Freq)) +
+confusion_plot <- ggplot(confusion_df, aes(x=Reference, y = Prediction, fill=Freq)) +
   coord_equal() +
   geom_tile() +
   labs(title = "Prediction distribution") +
   scale_y_discrete(limits = rev) +
   scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
   geom_text(aes(label=Freq), color="black") # printing values
-training_conf
+confusion_plot
 ```
-
-
-```{r}
-pred.test <- predict(mnlr, testing, type="class")
-tab.test <- table(Predicted=pred.test,
-             Actual=testing$`Primary Type`)
-confusion_df.test <- as.data.frame(tab.test)
-```
-
-```{r}
-test_conf <- ggplot(confusion_df.test, aes(x=Actual, y = Predicted, fill=Freq)) +
-  coord_equal() +
-  geom_tile() +
-  labs(title = "Prediction distribution") +
-  scale_y_discrete(limits = rev) +
-  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
-  geom_text(aes(label=Freq), color="black") # printing values
-test_conf
-```
+In the confusion matrix, we observe that the model only makes predictions for the categories "NARCOTICS", "BATTERY" and "THEFT". We note that, from earlier exploratory analysis, "BATTERY" and "THEFT" are the two most common crimes, however "NARCOTICS" is a less common crime. BEEP this is interesting but idk what to say about it if u have any ideas feel free BEEP
 
 ## Predicting Time of Crime
 
-Same as previously but now time of day is response variable and we exclude Time from our model. This gives us the three models:
+As an extension to this multiclass classification task, we will also evaluate the performance of another multinomial regression classifier used to predict the time of day at which a crime occurred. We use the same methods as seen previously but now time of day is response variable and we exclude Time from our model. This gives us the three models:
 1) No Location: Time of Day ~ Primary Type + Arrest + Domestic + Day
 2) District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
 3) District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
@@ -383,16 +414,132 @@ Same as previously but now time of day is response variable and we exclude Time 
 ```{r}
 #setting seed for reproducibility
 set.seed(200899)
-
 # Splitting response data and different model variable sets
 y_tod <- dat$`Time of Day`
-X_tod_noloc <- dat %>% select(-c(Time,`Location Description`,District,`Time of Day`))
-X_tod_area <- dat %>% select(-c(Time,`Location Description`,District,`Time of Day`))
-X_tod_district <- dat %>% select(-c(Time,`Location Description`,`District Area`, `Time of Day`))
-tod_mnlr_results_noloc <- mnlr_kfold_cv(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
-tod_mnlr_results_area <- mnlr_kfold_cv(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
-tod_mnlr_results_district <- mnlr_kfold_cv(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+X_tod_noloc <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day))
+X_tod_area <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,`District Area`))
+X_tod_district <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,District))
 ```
 
-BEEP need to run the above and save
+BEEP this has 60 variables and converges (but other models none converged) BEEP
+```{r, eval=FALSE}
+tod_results_noloc <- mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+```
+
+BEEP this has 72 variables and converges BEEP
+```{r, eval = FALSE}
+tod_results_area <- mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+```
+
+BEEP this has 123 variables BEEP
+```{r, eval=FALSE}
+tod_results_district <- mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+```
+BEEP need to run the above and save then find best and do plots as before BEEP
+
+```{r, include = FALSE}
+load("chicri/temp_data/tod_results_noloc.RData")
+load("chicri/temp_data/tod_results_area.RData")
+load("chicri/temp_data/tod_results_district.RData")
+```
+
+```{r}
+tod_noloc_class_means <- tod_results_noloc$byclass %>%
+  dplyr::group_by(Class,Repeat) %>%
+  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                   "Average Specificity" = mean(Specificity),
+                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+tod_noloc_class_means
+
+tod_noloc_overall_means <- tod_results_noloc$overall %>%
+  dplyr::group_by(Repeat) %>%
+  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                   "Average NIR" = mean(NIR),
+                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+tod_noloc_overall_means
+```
+
+```{r}
+tod_area_class_means <- tod_results_area$byclass %>%
+  dplyr::group_by(Class,Repeat) %>%
+  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                   "Average Specificity" = mean(Specificity),
+                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+tod_area_class_means
+
+tod_area_overall_means <- tod_results_area$overall %>%
+  dplyr::group_by(Repeat) %>%
+  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                   "Average NIR" = mean(NIR),
+                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+tod_area_overall_means
+```
+
+```{r}
+tod_district_class_means <- tod_results_district$byclass %>%
+  dplyr::group_by(Class,Repeat) %>%
+  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                   "Average Specificity" = mean(Specificity),
+                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+tod_district_class_means
+
+tod_district_overall_means <- tod_results_district$overall %>%
+  dplyr::group_by(Repeat) %>%
+  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                   "Average NIR" = mean(NIR),
+                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
+  dplyr::relocate(Repeat) %>%
+  dplyr::arrange(Repeat)
+
+tod_district_overall_means
+```
+Each of the models have similar overall accuracy across our repeats, so we prefer the simplest model with the fewest variables as this has minimal computational cost to run. BEEP this is super arbitrary BEEP
+```{r, eval=FALSE}
+set.seed(1)
+ind <- sample(2,nrow(dat),replace=TRUE, prob = c(0.8,0.2))
+index <- which(ind == 2)
+tod_mnlr <- mnlr_cv_indexed(X_tod_noloc,y_tod,index,return_model = TRUE)
+```
+BEEP load for knitting purposes BEEP
+```{r, include=FALSE}
+load("chicri/temp_data/tod_noloc_model.RData")
+```
+
+```{r}
+head(tod_pp <- fitted(tod_mnlr$model)) #Predictive probabilities for each obs
+```
+
+```{r}
+coef(tod_mnlr$model)
+```
+
+```{r}
+# Extract confusion matrix for plot
+tod_tab <- tod_mnlr$conf.matrix$table
+tod_confusion_df <- as.data.frame(tod_tab)
+
+tod_confusion_plot <- ggplot(tod_confusion_df, aes(x=Reference, y = Prediction, fill=Freq)) +
+  coord_equal() +
+  geom_tile() +
+  labs(title = "Prediction distribution") +
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
+  geom_text(aes(label=Freq), color="black") # printing values
+tod_confusion_plot
+```
 
