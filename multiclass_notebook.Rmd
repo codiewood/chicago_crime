@@ -45,7 +45,8 @@ dat <- load_crimes_csv("chicri/data/processed/Crimes_2019_Location_Type.csv")
 # API stuff below should give same data set
 #dat <- load_crimes_API(year="2019")
 #vars_to_remove <- c("ID", "Case Number", "Block", "IUCR", "FBI Code", "Description", "Beat", "Ward", "Community Area", "Updated On", "Latitude", "Longitude", "Location", "Year")
-#dat <- process_data(dat, remove_vars = vars_to_remove)
+#dat <- process_data(dat) %>%
+#  select(-all_of(vars_to_remove))
 ```
 
 As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task. In order to do this we incorporate information from conducting exploratory data analysis, as well as considering computational cost.
