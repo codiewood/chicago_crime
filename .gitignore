@@ -39,4 +39,4 @@ vignettes/*.pdf
 .Renviron
 
 # Temporary data files
-chicri/temp_data/
+# chicri/temp_data/
