@@ -4,15 +4,14 @@
 \alias{load_crimes_API}
 \title{Load chicago crime data using Socrata API.}
 \usage{
-load_crimes_API()
+load_crimes_API(year = "2019")
 }
 \arguments{
-\item{filepath}{path to the processed csv file.}
+\item{year}{The year, between 2001 and present, of the data to be extracted. If NULL returns all data from 2001 to present. Default is "2019".}
 }
 \value{
-tibble data frame of Chicago Crime data.
+tibble data frame of Chicago Crime data from the specified year.
 }
 \description{
-Returns a data frame of Chicago Crime data from specified year or range of years,
-or returns entire dataset from 2001 to present if no years are specified.
+Returns a data frame of Chicago Crime data, optionally from specified year.
 }

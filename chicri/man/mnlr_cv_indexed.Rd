@@ -4,7 +4,7 @@
 \alias{mnlr_cv_indexed}
 \title{Indexed cross-validation for multinomial regression}
 \usage{
-mnlr_cv_indexed(X, y, index)
+mnlr_cv_indexed(X, y, index, return_model = FALSE)
 }
 \arguments{
 \item{X}{Data to be used, not including the response variable or any variables not for use in model.}
@@ -12,9 +12,11 @@ mnlr_cv_indexed(X, y, index)
 \item{y}{Response variable, as a factor.}
 
 \item{index}{The indices of the rows to be used as test data.}
+
+\item{return_model}{Boolean to indicate if the model object is returned. Default is FALSE.}
 }
 \value{
-A confusion matrix, see `?confusionMatrix`
+A confusion matrix, see `?confusionMatrix`. If return_model = TRUE, a list containing a confusion matrix and a multinomial logistic regression model object, see `?multinom`
 }
 \description{
 Performs cross-validation computing metrics using specified indexes of the data set.

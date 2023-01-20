@@ -18,8 +18,13 @@ Imports:
     forcats,
     ggplot2,
     lubridate,
+    magrittr,
     nnet,
+    readr,
     RSocrata,
-    sf
+    sf,
+    stats
 Depends: 
     tidyverse
+URL: https://github.com/codiewood/chicago_crime
+BugReports: https://github.com/codiewood/chicago_crime/issues
