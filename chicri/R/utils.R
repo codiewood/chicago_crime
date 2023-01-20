@@ -9,6 +9,7 @@
 #' @import magrittr
 #' @importFrom stringr str_replace_all str_to_title
 #' @importFrom rlang enquo
+#' @importFrom tidyr drop_na
 NULL
 
 #' Process Chicago Crime data
