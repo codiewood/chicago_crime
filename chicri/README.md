@@ -4,6 +4,7 @@
 # chicri
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/codiewood/chicago_crime/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/codiewood/chicago_crime/actions/workflows/check-standard.yaml)
 <!-- badges: end -->
 
 The goal of chicri is to provide functions for the analysis of the
