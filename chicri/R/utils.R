@@ -5,11 +5,8 @@
 #' @import dplyr
 #' @import readr
 #' @import forcats
-<<<<<<< HEAD
-#'
-=======
 #' @import utils
->>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
+#' @import magrittr
 NULL
 
 #' Process Chicago Crime data
@@ -20,6 +17,7 @@ NULL
 #' @param remove_vars A vector containing the long names, with spaces, of the variables to be removed. If NULL, no variables removed. Default is NULL.
 #'
 #' @return Processed data
+#'
 #' @export
 process_data <- function(data, remove_vars = NULL){
   data <- data %>%
@@ -56,7 +54,8 @@ long_to_short <- function(string){
 
 
 
-#' Renames data variable names to long format, with spaces, from short, with dots
+
+#' Renames data variable names to long format, with spaces, from short, with underscores
 #'
 #' @param data The data set with the variables to be renamed
 #'
@@ -64,20 +63,15 @@ long_to_short <- function(string){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
-<<<<<<< HEAD
   long_names <- vector(length = length(short_names))
   for (i in 1:length(short_names)){
     long_names[i] <- short_to_long(short_names[i])
   }
   colnames(data) <- long_names
-=======
-  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$long_name[match(short_names, var_lkp$short_name)]
->>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
   return(data)
 }
 
-#' Renames data variable names to short format, with dots, from long, with spaces
+#' Renames data variable names to short format, with underscores, from long, with spaces.
 #'
 #' @param data The data set with the variables to be renamed
 #'
@@ -85,16 +79,11 @@ long_variables <- function(data){
 #' @export
 short_variables <- function(data){
   long_names <- colnames(data)
-<<<<<<< HEAD
   short_names <- vector(length = length(long_names))
   for (i in 1:length(short_names)){
     short_names[i] <- long_to_short(long_names[i])
   }
   colnames(data) <- short_names
-=======
-  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$short_name[match(long_names, var_lkp$long_name)]
->>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
   return(data)
 }
 
@@ -105,7 +94,7 @@ short_variables <- function(data){
 #'
 #' @param year The year, between 2001 and present, of the data to be extracted. If NULL returns all data from 2001 to present. Default is "2019".
 #'
-#' @return tibble data frame of Chicago Crime data from the specified year.
+#' @return tibble data frame of Chicago Crime data from the specified year, with long variable names.
 #' @export
 load_crimes_API <- function(year = "2019"){
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"

@@ -10,7 +10,7 @@ load_crimes_API(year = "2019")
 \item{year}{The year, between 2001 and present, of the data to be extracted. If NULL returns all data from 2001 to present. Default is "2019".}
 }
 \value{
-tibble data frame of Chicago Crime data from the specified year.
+tibble data frame of Chicago Crime data from the specified year, with long variable names.
 }
 \description{
 Returns a data frame of Chicago Crime data, optionally from specified year.
