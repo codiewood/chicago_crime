@@ -21,9 +21,12 @@ Imports:
     magrittr,
     nnet,
     readr,
+    rlang,
+    ROCit,
     RSocrata,
     sf,
-    stats
+    stats,
+    tidyr
 Depends: 
     tidyverse
 URL: https://github.com/codiewood/chicago_crime

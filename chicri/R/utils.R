@@ -6,6 +6,7 @@
 #' @import readr
 #' @import forcats
 #' @import utils
+#' @import magrittr
 NULL
 
 #' Process Chicago Crime data
@@ -16,6 +17,7 @@ NULL
 #' @param remove_vars A vector containing the long names, with spaces, of the variables to be removed. If NULL, no variables removed. Default is NULL.
 #'
 #' @return Processed data
+#'
 #' @export
 process_data <- function(data, remove_vars = NULL){
   data <- data %>%
@@ -36,7 +38,7 @@ process_data <- function(data, remove_vars = NULL){
   return(data)
 }
 
-#' Renames data variable names to long format, with spaces, from short, with dots
+#' Renames data variable names to long format, with spaces, from short, with underscores
 #'
 #' @param data The data set with the variables to be renamed
 #'
@@ -49,7 +51,7 @@ long_variables <- function(data){
   return(data)
 }
 
-#' Renames data variable names to short format, with dots, from long, with spaces
+#' Renames data variable names to short format, with underscores, from long, with spaces.
 #'
 #' @param data The data set with the variables to be renamed
 #'
@@ -69,7 +71,7 @@ short_variables <- function(data){
 #'
 #' @param year The year, between 2001 and present, of the data to be extracted. If NULL returns all data from 2001 to present. Default is "2019".
 #'
-#' @return tibble data frame of Chicago Crime data from the specified year.
+#' @return tibble data frame of Chicago Crime data from the specified year, with long variable names.
 #' @export
 load_crimes_API <- function(year = "2019"){
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
