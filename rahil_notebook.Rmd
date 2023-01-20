@@ -55,7 +55,7 @@ crimes <- crimes %>% select(-c(ID, `Case Number`, Block, IUCR, Description, Beat
 
 crimes[c('Primary Type', 'District', 'Arrest', 'Domestic')] <- lapply(crimes[c('Primary Type', 'District', 'Arrest', 'Domestic')],as.factor)
 
-time.data <- crimes %>% mutate(Hour = as.factor(hour(crimes$Date))) %>% group_by(Hour) %>% count(Arrest)
+time.data <- crimes %>% mutate(Hour = as.factor(hour(crimes$Date))) %>% group_by(Hour) %>% dplyr::count(Arrest)
 
 crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
 
@@ -116,7 +116,7 @@ library(caret)
 We will attempt to fit our SVM using 2 different training sets. As SVM models scale badly with data points we have to train our models on samples of our data set (which has greater than $250,000$ data points). There are a few methodologies when taking these samples, we could randomly sample our data, we could also take a representative sample and we could also try having equal amount of samples from each of the classes.
 
 ```{r}
-crimes %>% count(Arrest)
+crimes %>% dplyr::count(Arrest)
 ```
 
 We see that only $21.7%$ of the data has `Arrest = TRUE`. For our first SVM model, we just take a representative sample (of the same size as the previous model). The `createDataPartition` function in `caret` allows us to easily do this.
@@ -128,7 +128,7 @@ trainIndex <- createDataPartition(crimes$Arrest, p = .05,
 
 crimesTest <- crimes[trainIndex$Resample,]
 
-crimesTest %>% count(Arrest)
+crimesTest %>% dplyr::count(Arrest)
 ```
 
 Using the `train` function from `caret` we can train our classifier using SVM with a Radial Basis Kernel, I use the package `doParallel` to allow us to do $5$ fold cross validation in parallel.
@@ -192,6 +192,8 @@ There is another method of sampling in a similar vein to down sampling, known as
 up_sample <- upSample(x = crimes, y = crimes$Arrest)
 up_sample %>% count(Arrest)
 ```
+
+
 ```{r}
 trainIndexU <- createDataPartition(up_sample$Arrest, p = nrow(crimesTest)/nrow(up_sample), 
                                  list = TRUE)
@@ -200,6 +202,9 @@ crimesTestU <- up_sample[trainIndexU$Resample,] %>% select(-Class)
 
 crimesTestU %>% count(Arrest)
 ```
+
+
+
 ```{r}
 cl <- makePSOCKcluster(detectCores() - 1)
 
@@ -245,7 +250,7 @@ An interesting benchmark for the usefulness of the model is the No-Information R
 
 #confusionMatrix(reference = crimes$Arrest, data = predict(svm.modelD, newdata = crimes), positive = 'TRUE')
 
-#confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive = 'TRUE')
+confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive = 'TRUE') ## look into plotting side by side
 ```
 
 ```{r}
@@ -317,37 +322,4 @@ ModelQual[4,] <- c('SVM', repSVM %>% summarise(across(everything(), mean)))
 ModelQual
 ```
 
-SOME POINTLESS ROCIT STUFF MIGHT USE MIGHT NOT  BEEP
-
-```{r echo=TRUE}
-library(ROCit)
-roc <- rocit(score = log.model[["finalModel"]][["fitted.values"]], class = log.model[["finalModel"]][["y"]])
-measure <- measureit(roc,measure = c("ACC", "SENS", "SPEC"))
-```
-
-```{r echo=TRUE}
-ggplot() + geom_line(aes(x = measure$TP, y = measure$TN)) + labs(title = 'ROC',x = 'True Positive', y = 'True Negative')
-
-ggplot() + geom_line(aes(x = 1 - measure$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity')
-```
-
-```{r echo=TRUE}
-ggplotROC <- function(fitval, y){
-  roc <- rocit(score = fitval, class = y)
-  meas <- measureit(roc,measure = c("ACC", "SENS", "SPEC"))                   
-  return(ggplot() + geom_line(aes(x = 1 - meas$SPEC, y = measure$SENS)) + labs(title = 'ROC',x = '1 - Specifity', y = 'Sensitivity'))
-}
-
-AUC <- function(fitval,y){
-  roc_mod <- rocit(score = fitval , class = y)
-  return(roc_mod[['AUC']])
-}
-```
-
-Using ROC in this case has some theoretical advantages, it does tend to prefer models that obtain True positives- this  wouldn't be frowned upon as an overestimation allows redundancy preparation for the services needed to deal with arrests.
-
-```{r echo=TRUE, warning=FALSE}
-roc$AUC
-summary(roc)
-```
 

@@ -7,6 +7,7 @@
 #' @import dplyr
 #' @import readr
 #' @import forcats
+#'
 NULL
 
 #TODO: this should mimic the data processing R script
@@ -20,6 +21,22 @@ process_data <- function(data){
 
 }
 
+
+short_to_long <- function(string){
+  string <- str_replace_all(string, "_", " ")
+  string <- str_to_title(string)
+  return(string)
+}
+
+
+long_to_short <- function(string){
+  string <- str_replace_all(string, " ", "_")
+  string <- tolower(string)
+  return(string)
+}
+
+
+
 #' Renames data variable names to long format, with spaces, from short, with dots
 #'
 #' @param data The data set with the variables to be renamed
@@ -28,8 +45,11 @@ process_data <- function(data){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
-  var_lkp <- read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$long_name[match(short_names, var_lkp$short_name)]
+  long_names <- vector(length = length(short_names))
+  for (i in 1:length(short_names)){
+    long_names[i] <- short_to_long(short_names[i])
+  }
+  colnames(data) <- long_names
   return(data)
 }
 
@@ -41,8 +61,11 @@ long_variables <- function(data){
 #' @export
 short_variables <- function(data){
   long_names <- colnames(data)
-  var_lkp <- read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$short_name[match(long_names, var_lkp$long_name)]
+  short_names <- vector(length = length(long_names))
+  for (i in 1:length(short_names)){
+    short_names[i] <- long_to_short(long_names[i])
+  }
+  colnames(data) <- short_names
   return(data)
 }
 
@@ -112,8 +135,15 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
 
 
 
+
 count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =NULL, date_level = "month"){
-  location_level <- enquo(location_level)
+
+
+  if (!all(names(df) == tolower(names(df)))){
+    df <- short_variables(df)
+  }
+
+
 
   if (is.null(date_start)){ #if no start date, set to before first observation in data
     date_start <- as.Date("01-01-2000")
@@ -145,6 +175,11 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
     }
   } else { #if we do include location
 
+    if (!(location_level == tolower(location_level))){
+      location_level <- long_to_short(location_level)
+    }
+    location_level <- enquo(location_level)
+
     if (date_level == "day"){
       count_dat <- df %>%
         filter(date > date_start, date < date_end) %>%
@@ -166,6 +201,8 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
         dplyr::summarise(count = n())
     }
   }
+
+  count_dat <- long_variables(count_dat)
 
   return(count_dat)
 }
