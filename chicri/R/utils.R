@@ -7,6 +7,8 @@
 #' @import forcats
 #' @import utils
 #' @import magrittr
+#' @importFrom stringr str_replace_all str_to_title
+#' @importFrom rlang enquo
 NULL
 
 #' Process Chicago Crime data
@@ -21,8 +23,8 @@ NULL
 #' @export
 process_data <- function(data, remove_vars = NULL){
   data <- data %>%
-    readr::type_convert(col_types = list(Arrest = col_logical(),
-                                         Domestic = col_logical(),
+    readr::type_convert(col_types = list(Arrest = readr::col_logical(),
+                                         Domestic = readr::col_logical(),
                                          IUCR = readr::col_factor(),
                                          `Primary Type` = readr::col_factor(),
                                          `Community Area` = readr::col_factor(),
@@ -33,27 +35,34 @@ process_data <- function(data, remove_vars = NULL){
                                          `FBI Code` = readr::col_factor())) %>%
     dplyr::select(-all_of(remove_vars)) %>%
     dplyr::mutate(Date = readr::parse_datetime(data$Date, format = "%m/%d/%Y %I:%M:%S %p")) %>%
-    tidyr::drop_na(data) %>%
+    tidyr::drop_na(data)
   data$`Primary Type` <- forcats::fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
   return(data)
 }
 
-
+#' Converts short name format with underscores to long name format
+#'
+#' @param string String to be converted
+#'
+#' @return the string, with underscores replaced by spaces and capitalised
+#' @export
 short_to_long <- function(string){
-  string <- str_replace_all(string, "_", " ")
-  string <- str_to_title(string)
+  string <- stringr::str_replace_all(string, "_", " ")
+  string <- stringr::str_to_title(string)
   return(string)
 }
 
-
+#' Converts long name format with spaces to short name format with underscores
+#'
+#' @param string String to be converted
+#'
+#' @return the string, with underscores and uncapitalised
+#' @export
 long_to_short <- function(string){
-  string <- str_replace_all(string, " ", "_")
+  string <- stringr::str_replace_all(string, " ", "_")
   string <- tolower(string)
   return(string)
 }
-
-
-
 
 #' Renames data variable names to long format, with spaces, from short, with underscores
 #'
@@ -150,17 +159,20 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
     return(factor_vec)
 }
 
-
-
-
+#' Count the number of crimes in a given time frame and location level
+#'
+#' @param df Data frame
+#' @param date_start Date to begin the count
+#' @param date_end Date to end the count
+#' @param location_level Column name of the relevant location level from the data set.
+#' @param date_level String specifying the date level required. Options are "day", "week" or "month".
+#'
+#' @return Data frame containing the relevant count data
+#' @export
 count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =NULL, date_level = "month"){
-
-
   if (!all(names(df) == tolower(names(df)))){
     df <- short_variables(df)
   }
-
-
 
   if (is.null(date_start)){ #if no start date, set to before first observation in data
     date_start <- as.Date("01-01-2000")
@@ -172,22 +184,22 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
   if (is.null(location_level)){ #if not including location
     if (date_level == "day"){ #if day selected
       count_dat <- df %>%
-        filter(date > date_start, date < date_end) %>%
-        mutate(year = year(date), month = month(date), yday = day(date)) %>%
-        group_by(year, month,day) %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(year = year(date), month = month(date), yday = day(date)) %>%
+        dplyr::group_by(year, month,day) %>%
         dplyr::summarise(count = n())
     } else if (date_level == "week") { #if week selected
       count_dat <- df %>%
-        filter(date > date_start, date < date_end) %>%
-        mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
-        group_by(week_start) %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        dplyr::group_by(week_start) %>%
         dplyr::summarise(count = n()) %>%
-        mutate(year = year(week_start), week = week(week_start))
+        dplyr::mutate(year = year(week_start), week = week(week_start))
     } else if (date_level == "month"){ #if month selected
       count_dat <- df %>%
-        filter(date > date_start, date < date_end) %>%
-        mutate(year = year(date), month = month(date)) %>%
-        group_by(year, month) %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(year = year(date), month = month(date)) %>%
+        dplyr::group_by(year, month) %>%
         dplyr::summarise(count = n())
     }
   } else { #if we do include location
@@ -195,31 +207,29 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
     if (!(location_level == tolower(location_level))){
       location_level <- long_to_short(location_level)
     }
-    location_level <- enquo(location_level)
+    location_level <- rlang::enquo(location_level)
 
     if (date_level == "day"){
       count_dat <- df %>%
-        filter(date > date_start, date < date_end) %>%
-        mutate(year = year(date), month = month(date), day = day(date)) %>%
-        group_by(year, month,day, !!eval(location_level)) %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(year = year(date), month = month(date), day = day(date)) %>%
+        dplyr::group_by(year, month,day, !!eval(location_level)) %>%
         dplyr::summarise(count = n())
     } else if (date_level == "week") {
       count_dat <- df %>%
-        filter(date > date_start, date < date_end) %>%
-        mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
-        group_by(week_start, !!eval(location_level)) %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        dplyr::group_by(week_start, !!eval(location_level)) %>%
         dplyr::summarise(count = n()) %>%
-        mutate(year = year(week_start), week = week(week_start))
+        dplyr::mutate(year = year(week_start), week = week(week_start))
     } else if (date_level == "month"){
       count_dat <- df %>%
-        filter(date > date_start, date < date_end) %>%
-        mutate(year = year(date), month = month(date)) %>%
-        group_by(year, month, !!eval(location_level)) %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(year = year(date), month = month(date)) %>%
+        dplyr::group_by(year, month, !!eval(location_level)) %>%
         dplyr::summarise(count = n())
     }
   }
-
   count_dat <- long_variables(count_dat)
-
   return(count_dat)
 }
