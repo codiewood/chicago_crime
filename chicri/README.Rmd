@@ -26,7 +26,7 @@ You can install the development version of chicri from [GitHub](https://github.c
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("codiewood/chicago_crime")
+devtools::install_github("codiewood/chicago_crime/chicri")
 ```
 
 ## Example

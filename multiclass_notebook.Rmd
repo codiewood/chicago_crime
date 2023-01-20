@@ -21,6 +21,12 @@ In this section we consider the multi-class classification task of predicting th
 Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
 
 ```{r}
+devtools::install_github("codiewood/chicago_crime/chicri")
+library(chicri)
+```
+
+
+```{r, eval=FALSE}
 #wont need this when loading package
 require(nnet) # For multinomial regression
 require(tidyverse) # For data manip
