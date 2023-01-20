@@ -26,12 +26,12 @@ process_data <- function(data){
                                          Domestic = readr::col_logical(),
                                          IUCR = readr::col_factor(),
                                          `Primary Type` = readr::col_factor(),
-                                         `Community Area` = readr::col_factor(),
-                                         Beat = readr::col_factor(),
-                                         Ward = readr::col_factor(),
-                                         District = readr::col_factor(),
                                          `Location Description` = readr::col_factor(),
                                          `FBI Code` = readr::col_factor())) %>%
+    mutate(`Community Area` = as.factor(`Community Area`),
+           Beat = as.factor(Beat),
+           Ward = as.factor(Ward),
+           District = as.factor(District)) %>%
     tidyr::drop_na()
   data$`Primary Type` <- forcats::fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
   return(data)
