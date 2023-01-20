@@ -14,7 +14,7 @@ Config/testthat/edition: 3
 RoxygenNote: 7.2.1
 Imports: 
     caret,
-    dplyr,
+    dplyr (>= 1.0.10),
     forcats,
     ggplot2,
     lubridate,
@@ -26,6 +26,7 @@ Imports:
     RSocrata,
     sf,
     stats,
+    stringr,
     tidyr
 Depends: 
     tidyverse
