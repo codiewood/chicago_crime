@@ -2,16 +2,18 @@
 % Please edit documentation in R/utils.R
 \name{process_data}
 \alias{process_data}
-\title{Title}
+\title{Process Chicago Crime data}
 \usage{
-process_data(data)
+process_data(data, remove_vars = NULL)
 }
 \arguments{
-\item{data}{Data set downloaded using API}
+\item{data}{Data set to process, in tibble format and with long variable names}
+
+\item{remove_vars}{A vector containing the long names, with spaces, of the variables to be removed. If NULL, no variables removed. Default is NULL.}
 }
 \value{
 Processed data
 }
 \description{
-Title
+Converts columns to the correct types, removing specified variables, formatting the date variable and merging the `Primary Type` categories of "CRIM SEXUAL ASSAULT" and "CRIMINAL SEXUAL ASSAULT".
 }

@@ -1,24 +1,43 @@
 # Script containing general purpose utility functions
 #'
-#' @import tidyverse
 #' @import lubridate
 #' @importFrom RSocrata read.socrata
-#' @import lubridate
 #' @import dplyr
 #' @import readr
 #' @import forcats
+<<<<<<< HEAD
 #'
+=======
+#' @import utils
+>>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
 NULL
 
-#TODO: this should mimic the data processing R script
-#' Title
+#' Process Chicago Crime data
+#' @description
+#' Converts columns to the correct types, removing specified variables, formatting the date variable and merging the `Primary Type` categories of "CRIM SEXUAL ASSAULT" and "CRIMINAL SEXUAL ASSAULT".
 #'
-#' @param data Data set downloaded using API
+#' @param data Data set to process, in tibble format and with long variable names
+#' @param remove_vars A vector containing the long names, with spaces, of the variables to be removed. If NULL, no variables removed. Default is NULL.
 #'
 #' @return Processed data
 #' @export
-process_data <- function(data){
-
+process_data <- function(data, remove_vars = NULL){
+  data <- data %>%
+    readr::type_convert(col_types = list(Arrest = col_logical(),
+                                         Domestic = col_logical(),
+                                         IUCR = readr::col_factor(),
+                                         `Primary Type` = readr::col_factor(),
+                                         `Community Area` = readr::col_factor(),
+                                         Beat = readr::col_factor(),
+                                         Ward = readr::col_factor(),
+                                         District = readr::col_factor(),
+                                         `Location Description` = readr::col_factor(),
+                                         `FBI Code` = readr::col_factor())) %>%
+    dplyr::select(-all_of(remove_vars)) %>%
+    dplyr::mutate(Date = readr::parse_datetime(data$Date, format = "%m/%d/%Y %I:%M:%S %p")) %>%
+    tidyr::drop_na(data) %>%
+  data$`Primary Type` <- forcats::fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
+  return(data)
 }
 
 
@@ -45,11 +64,16 @@ long_to_short <- function(string){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
+<<<<<<< HEAD
   long_names <- vector(length = length(short_names))
   for (i in 1:length(short_names)){
     long_names[i] <- short_to_long(short_names[i])
   }
   colnames(data) <- long_names
+=======
+  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
+  colnames(data) <- var_lkp$long_name[match(short_names, var_lkp$short_name)]
+>>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
   return(data)
 }
 
@@ -61,11 +85,16 @@ long_variables <- function(data){
 #' @export
 short_variables <- function(data){
   long_names <- colnames(data)
+<<<<<<< HEAD
   short_names <- vector(length = length(long_names))
   for (i in 1:length(short_names)){
     short_names[i] <- long_to_short(long_names[i])
   }
   colnames(data) <- short_names
+=======
+  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
+  colnames(data) <- var_lkp$short_name[match(long_names, var_lkp$long_name)]
+>>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
   return(data)
 }
 
@@ -103,10 +132,10 @@ load_crimes_csv <- function(filepath){
     stop("Please ensure the file specified contains processed data.")
   }
   message("Loading processed data...")
-  data <- read_csv(filepath) %>%
-    type_convert(col_types = list(`Primary Type` = col_factor(),
-                                  `Location Description` = col_factor(),
-                                  District = col_factor()))
+  data <- readr::read_csv(filepath) %>%
+    readr::type_convert(col_types = list(`Primary Type` = readr::col_factor(),
+                                  `Location Description` = readr::col_factor(),
+                                  District = readr::col_factor()))
   return(data)
 }
 
@@ -122,13 +151,12 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
     level <- levels(factor_vec)
     tab <- tabulate(factor_vec)
     other.levels <- level[tab < threshold]
-    factor_vec <- fct_collapse(factor_vec, "OTHER" = other.levels)
+    factor_vec <- forcats::fct_collapse(factor_vec, "OTHER" = other.levels)
     if (print_summary){
       cat(paste0(length(other.levels), " out of ", length(tab),
                  " categories converted to OTHER, ",
                  round(100 * length(factor_vec[factor_vec == "OTHER"]) / length(factor_vec),
-                       digits = 2),
-                 "% of data values. \n"))
+                       digits = 2), "% of data values. \n"))
     }
     return(factor_vec)
 }
