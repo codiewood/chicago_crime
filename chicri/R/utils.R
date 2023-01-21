@@ -9,6 +9,7 @@
 #' @import magrittr
 #' @importFrom stringr str_replace_all str_to_title
 #' @importFrom rlang enquo
+#' @importFrom tidyr drop_na
 NULL
 
 #' Process Chicago Crime data
@@ -69,6 +70,7 @@ long_to_short <- function(string){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
+
   long_names <- vector(length = length(short_names))
   for (i in 1:length(short_names)){
     if(short_names[i] == "iucr"){
@@ -85,6 +87,7 @@ long_variables <- function(data){
     }
   }
   colnames(data) <- long_names
+
   return(data)
 }
 
@@ -241,3 +244,4 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
   count_dat <- long_variables(count_dat)
   return(count_dat)
 }
+

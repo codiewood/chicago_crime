@@ -1,8 +1,7 @@
 # Script contains functions for multi-class classification
 #' @importFrom nnet multinom
 #' @import ggplot2
-#' @import tidyverse
-#' @import caret
+#' @importFrom caret confusionMatrix
 #' @importFrom stats pnorm predict
 #' @import magrittr
 #' @import forcats

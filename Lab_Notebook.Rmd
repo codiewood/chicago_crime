@@ -1,14 +1,52 @@
 ---
 title: "Using Regression and Classification Techniques on Chicago Crime Dataset"
+author: "Rahil Morjaria, Codie Wood, Rachel Wood"
+output: pdf_document
+date: "January 2023"
 output:
   pdf_document: default
   html_document: default
 date: "2023-01-09"
 ---
 
-# Introduction
 
-## Package Description
+
+```{r}
+theme_set(theme_minimal())
+source("chicri/R/utils.R")
+
+```
+## Computational Techniques
+### Package Building
+Packages are a key part of producing reproducible R code. They include R functions which can be reused, the documentation that describes how to use them, and sometimes sample data. In the construction of our `chicri` package, we mainly used the `devtools` and `usethis` packages. We followed the guidelines and usage principles detailed in
+[R Packages (Second Edition)]\url{https://r-pkgs.org/}
+BEEP bibliography? BEEP, in order to ensure our package was consistent with widely used conventions.
+
+### Documentation
+
+When documenting the various functions in the package, we used the `roxygen2` package. This package automatically creates `.Rd` documentation files for functions from comments added as part of the function definitions. Using this framework allows the code and documentation to coexist and be updated alongside eachother, ensuring consistency.
+
+### Application Programming Interface (API) Querying
+ 
+The Chicago Crime dataset stored online is regularly updated on a daily basis. It has millions of rows of data, and each row contains a total of 22 features which have been recorded. As such, the full data is incredibly large and so costly to store. As such, we chose not to include data files in the package. Instead, we used the `RSocrata` package to interact with the online data portal and pull the data. The function `load_crimes_API()` allows the user to directly download the dataset into R, via the function `read.socrata()`, and also to specify a particular year from which the data should be loaded.
+
+## Testing, GitHub and Continuous Integration
+For tests, we used the `testthat` package. This creates a new directory `./tests/testthat/` to be populated with unit tests for the package functions. Although the tests can be run alone, generally, we made use of the `usethis::check()` command. This relies on the function `rcmdcheck::rcmdcheck()`, which not only runs the tests, but also carries out other checks for the package build. These include:
+ ## Package Description
+
+- Checking the package installs correctly,
+
+- Checking for missing documentation,
+
+- Checking for undefined variables,
+
+- Checking for missing dependencies.
+
+In order to ensure that tests and checks were run on a regular basis, continuous integration was set up using Github Actions. The status of this action can be seen in our package description markdown file. For each pull request and push to the main branch, this checked our package on multiple operating systems (Windows, Ubuntu and MacOS). This helped to ensure that when writing our code, we did not introduce any changes which broke functionality.
+
+### Parallel Programming
+
+BEEP rahil did this so should probs talk about it BEEP
 
 
 # Exploratory Data Analysis
@@ -18,6 +56,7 @@ df <- load_crimes_API(year = NULL)
 ```
 
 ```{r, include = FALSE}
+library(tidyverse)
 df<- read_csv("~/Desktop/project/data_API.csv", show_col_types = FALSE)
 df <- df %>% long_variables()
 ```
@@ -25,19 +64,43 @@ df <- df %>% long_variables()
 ## Variables to Keep
 
 # Predicting Crimes Spatially and Temporally 
-For this task we implement a general additive model (GAM) using the `gam()` function from the `mvgc` package.
+For this task we implement a general additive model (GAM) using the `gam()` function from the `mgcv` package.
 
 ## Weekly and Monthly Predictions
 
 We use the `count_cases()` function to obtain weekly and monthly counts
 ```{r}
-week_data <- df %>% count_cases(date_level = "week")
+library(tidyverse)
+library(lubridate)
+week_count <- df %>% count_cases(date_level = "week", date_end = as.Date("2019-12-31"))
 
-
+ggplot(data =week_count) +
+  geom_point(aes(x= `Week Start`, y = Count), color = "steelblue3", alpha = 0.5)
 ```
+We can see that there is a drop in early 2020 (likely due to the COVID pandemic), and so we only consider data from 2019 or earlier when fitting our model. We then split the data into testing and training sets:
+
+```{r, warning=FALSE}
+library(mgcv)
+
+week_train <- week_count %>% filter(Year <2018) 
+week_test <- week_count %>% filter(Year >= 2018)
+
+model_week <- gam(Count ~ s(Week, bs = "cc") + Year, data = week_train, family = "poisson")
+
+week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data" = "Train")
+
+week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
 
 
 
+week_dat <- rbind(week_train, week_test)
+
+
+p <-ggplot(data = week_dat) +
+  geom_point(aes(x = `Week Start` , y = Count), color = "steelblue3", alpha =0.5) +
+  geom_line(aes(x = `Week Start`, y = Predicted, color = Data)) 
+p
+```
 
 
 
