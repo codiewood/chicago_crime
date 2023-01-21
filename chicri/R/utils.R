@@ -5,11 +5,9 @@
 #' @import dplyr
 #' @import readr
 #' @import forcats
-<<<<<<< HEAD
 #'
-=======
 #' @import utils
->>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
+
 NULL
 
 #' Process Chicago Crime data
@@ -64,16 +62,13 @@ long_to_short <- function(string){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
-<<<<<<< HEAD
+
   long_names <- vector(length = length(short_names))
   for (i in 1:length(short_names)){
     long_names[i] <- short_to_long(short_names[i])
   }
   colnames(data) <- long_names
-=======
-  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$long_name[match(short_names, var_lkp$short_name)]
->>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
+
   return(data)
 }
 
@@ -85,16 +80,11 @@ long_variables <- function(data){
 #' @export
 short_variables <- function(data){
   long_names <- colnames(data)
-<<<<<<< HEAD
   short_names <- vector(length = length(long_names))
   for (i in 1:length(short_names)){
     short_names[i] <- long_to_short(long_names[i])
   }
   colnames(data) <- short_names
-=======
-  var_lkp <- utils::read.table("data/raw/feature_names.csv", header = T, sep = ",")
-  colnames(data) <- var_lkp$short_name[match(long_names, var_lkp$long_name)]
->>>>>>> 3feb21a57e67815bda840cd1c99f93ab2186f035
   return(data)
 }
 
@@ -234,3 +224,4 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
 
   return(count_dat)
 }
+
