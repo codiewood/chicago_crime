@@ -26,19 +26,14 @@ library(chicri)
 ```
 
 
-```{r, eval=FALSE}
+```{r}
 #wont need this when loading package
-require(nnet) # For multinomial regression
 require(tidyverse) # For data manip
 require(lubridate) # For date/time
 require(ggplot2) # For plots
 require(sf) # For spatial plots
 require(caret) # For confusion matrix
 
-#shouldnt need below when package sorted
-source("chicri/R/multiclass_classification.R")
-source("chicri/R/utils.R")
-source("chicri/R/location_analysis.R")
 theme_set(theme_bw())
 ```
 
@@ -304,7 +299,7 @@ load("chicri/temp_data/mnlr_results_area_df.RData")
 load("chicri/temp_data/mnlr_results_district_df.RData")
 ```
 
-
+BEEP am attempting to write a function that will do this but unsure how to get around the fact that for class based bit, metrics might not be those 3 BEEP
 ```{r}
 noloc_class_means <- mnlr_results_noloc.df$byclass %>%
   dplyr::group_by(Class,Repeat) %>%
@@ -316,17 +311,21 @@ noloc_class_means <- mnlr_results_noloc.df$byclass %>%
 
 noloc_class_means
 
-noloc_overall_means <- mnlr_results_noloc.df$overall %>%
-  dplyr::group_by(Repeat) %>%
-  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
-                   "Average NIR" = mean(NIR),
-                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
+noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "overall")
 noloc_overall_means
 ```
 BEEP note that the overall means all look the same because of rounding, they aren't actually all equal BEEP
+
+```{r}
+noloc_kab <- knitr::kable(noloc_overall_means,
+                          format="latex",
+                          digits = 4,
+                          align = rep("c",4)) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+noloc_kab
+```
+
+
 ```{r}
 area_class_means <- mnlr_results_area.df$byclass %>%
   dplyr::group_by(Class,Repeat) %>%
@@ -338,16 +337,18 @@ area_class_means <- mnlr_results_area.df$byclass %>%
 
 area_class_means
 
-area_overall_means <- mnlr_results_area.df$overall %>%
-  dplyr::group_by(Repeat) %>%
-  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
-                   "Average NIR" = mean(NIR),
-                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
-area_overall_means
+area_overall_means <- mean_repeat_metrics(mnlr_results_area.df, type = "overall")
 ```
+
+```{r}
+area_kab <- knitr::kable(area_overall_means,
+                          format="latex",
+                          digits = 4,
+                          align = rep("c",4)) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+area_kab
+```
+
 
 ```{r}
 district_class_means <- mnlr_results_district.df$byclass %>%
@@ -360,17 +361,17 @@ district_class_means <- mnlr_results_district.df$byclass %>%
 
 district_class_means
 
-district_overall_means <- mnlr_results_district.df$overall %>%
-  dplyr::group_by(Repeat) %>%
-  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
-                   "Average NIR" = mean(NIR),
-                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
-district_overall_means
+district_overall_means <- mean_repeat_metrics(mnlr_results_district.df, type = "overall")
 ```
 
+```{r}
+district_kab <- knitr::kable(district_overall_means,
+                          format="latex",
+                          digits = 4,
+                          align = rep("c",4)) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+district_kab
+```
 
 BEEP interpretations of the above and get into latex tables to put in report? BEEP
 
