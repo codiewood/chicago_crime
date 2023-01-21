@@ -1,5 +1,8 @@
 ---
 title: "Using Regression and Classification Techniques on Chicago Crime Dataset"
+author: "Rahil Morjaria, Codie Wood, Rachel Wood"
+output: pdf_document
+date: "January 2023"
 output:
   pdf_document: default
   html_document: default
