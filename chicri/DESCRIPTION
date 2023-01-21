@@ -8,13 +8,15 @@ Description: Analysis tools for the Chicago crime dataset.
 License: MIT + file LICENSE
 URL: https://github.com/codiewood/chicago_crime/chicri
 BugReports: https://github.com/codiewood/chicago_crime/issues
+Depends: 
+    dplyr (>= 1.0.10),
+    magrittr,
+    R (>= 4.2.2)
 Imports: 
     caret,
-    dplyr (>= 1.0.10),
     forcats,
     ggplot2,
     lubridate,
-    magrittr,
     nnet,
     readr,
     rlang,
