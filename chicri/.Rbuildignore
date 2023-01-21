@@ -5,3 +5,5 @@
 ^temp_data$
 ^\.github$
 ^data$
+^R/backup_utils\.R$
+^backup\.RData$

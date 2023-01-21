@@ -212,6 +212,14 @@ mnlr_kfold_cv.df <- function(X, y, k, n_reps = 5, metrics) {
   return(list(overall = df_overall, byclass = df_byclass))
 }
 
+#' Calculate the means across folds of performance metrics
+#'
+#' @param results Output of `mnlr_kfold_cv.df`
+#' @param type String specifying which metric type to extract. Options are "class" or "overall"
+#' @param metrics A vector of strings of the by class metrics. Default is NULL.
+#'
+#' @return A tibble containing the metrics, averages over all folds, for each repeat.
+#' @export
 mean_repeat_metrics <- function(results,type,metrics=NULL){
   if(type == "class"){
     #BEEP doesnt work yet for generic metric list
