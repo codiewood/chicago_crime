@@ -37,8 +37,8 @@ othering <- function(factor_vec, threshold){
   level <- levels(factor_vec) 
   tab <- tabulate(factor_vec)
   other.levels <- level[ tab < threshold]
-  factor_vec <- fct_collapse(factor_vec, "Other" = other.levels)
-  perc <- length(factor_vec[factor_vec == 'Other'])*100/length(factor_vec)
+  factor_vec <- fct_collapse(factor_vec, "OTHER" = other.levels)
+  perc <- length(factor_vec[factor_vec == 'OTHER'])*100/length(factor_vec)
   print(perc)
   return(factor_vec)
   
@@ -67,9 +67,9 @@ crimes<- drop_na(crimes)
 
 crimes<- droplevels(crimes)
 
-levels(crimes$`Primary Type`)[levels(crimes$`Primary Type`)=="OTHER OFFENSE"] <- "Other"
+levels(crimes$`Primary Type`)[levels(crimes$`Primary Type`)=="OTHER OFFENSE"] <- "OTHER"
 
-crimes$`Primary Type` <- othering(crimes$`Primary Type`, 500)
+crimes$`Primary Type` <- othering(crimes$`Primary Type`, 1000)
 
 crimes<- droplevels(crimes)
 ```
@@ -123,6 +123,7 @@ We see that only $21.7%$ of the data has `Arrest = TRUE`. For our first SVM mode
 
 
 ```{r}
+set.seed(1) # Setting seed for reproducibility
 trainIndex <- createDataPartition(crimes$Arrest, p = .05, 
                                   list = TRUE)
 
@@ -136,13 +137,26 @@ Using the `train` function from `caret` we can train our classifier using SVM wi
 ```{r}
 library(doParallel)
 
+#create a list of seeds, and change for each resampling
+#length is = (n_repeats*nresampling)+1
+seeds <- vector(mode = "list", length = 6)
+
+for(i in 1:5) seeds[[i]] <- sample.int(n=1000, 3)
+
+#for the last model
+seeds[[6]]<-sample.int(1000, 1)
+
+# we will reuse these seeds for different models
+
 cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
+control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
+
 svm.model <- train(Arrest ~ .,
                    data = crimesTest,
-                   trControl = trainControl(method = 'cv',5, allowParallel = TRUE),
+                   trControl = control,
                    method = 'svmRadial',
                    family = binomial(),
                    allowParallel = TRUE)
@@ -163,6 +177,7 @@ down_sample %>% count(Arrest)
 We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample).
 
 ```{r}
+set.seed(1)
 trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
                                  list = TRUE)
 
@@ -176,9 +191,11 @@ cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
+control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
+
 svm.modelD <- train(Arrest ~ .,
                    data = crimesTestD,
-                   trControl = trainControl(method = 'cv', 5, allowParallel = TRUE),
+                   trControl = control,
                    method = 'svmRadial',
                    family = binomial())
 
@@ -195,6 +212,7 @@ up_sample %>% count(Arrest)
 
 
 ```{r}
+set.seed(1)
 trainIndexU <- createDataPartition(up_sample$Arrest, p = nrow(crimesTest)/nrow(up_sample), 
                                  list = TRUE)
 
@@ -210,9 +228,11 @@ cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
+control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
+
 svm.modelU <- train(Arrest ~ .,
                    data = crimesTestU,
-                   trControl = trainControl(method = 'cv', 5, allowParallel = TRUE),
+                   trControl = control,
                    method = 'svmRadial',
                    family = binomial())
 
@@ -227,9 +247,11 @@ cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
+control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
+
 log.model <- train(Arrest ~ .,
                data = crimes,
-               trControl = trainControl(method = 'cv',5, allowParallel = TRUE),
+               trControl = control,
                method = "glm",
                family=binomial())
 
