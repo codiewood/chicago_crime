@@ -1,12 +1,12 @@
 # Script contains functions for multi-class classification
 #' @importFrom nnet multinom
 #' @import ggplot2
-#' @import tidyverse
-#' @import caret
+#' @importFrom caret confusionMatrix
 #' @importFrom stats pnorm predict
 #' @import magrittr
 #' @import forcats
 #' @import dplyr
+#' @importFrom rlang :=
 NULL
 
 #' Significance test for features
@@ -67,10 +67,10 @@ mnlr_cv_indexed <- function(X, y, index, return_model = FALSE){
   y_training <- y[-index]
   y_testing <- y[index]
   # Obtaining full data for model fitting
-  training <- X_training %>% mutate(y = y_training)
+  training <- X_training %>% dplyr::mutate(y = y_training)
 
   # Fit model with training data
-  model <- multinom(y ~ ., data=training)
+  model <- nnet::multinom(y ~ ., data=training)
 
   # Predict on test data
   pred.test <- stats::predict(model, X_testing, type="class")

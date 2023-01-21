@@ -1,0 +1,48 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# chicri
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of chicri is to provide functions for the analysis of the [Chicago crime data set](https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2). Namely, the functions are part of the SC1/SM1 group project for the Compass PhD, and aid in performing regressions and classifications.
+
+## Installation
+
+You can install the development version of chicri from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("codiewood/chicago_crime/chicri")
+```
+
+## Example
+
+This is a basic example which shows you how to load the Chicago crime data from the year 2019:
+
+```{r example}
+library(chicri)
+data <- load_crimes_API(year="2019")
+```
+
+We can then also process the data using the data processing functionality, and investigate the outcome.
+
+```{r cars}
+summary(data)
+data <- process_data(data)
+summary(data)
+```
+

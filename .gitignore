@@ -40,3 +40,5 @@ vignettes/*.pdf
 
 # Temporary data files
 # chicri/temp_data/
+
+*.html
