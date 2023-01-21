@@ -8,7 +8,7 @@
 #' @import utils
 #' @import magrittr
 #' @importFrom stringr str_replace_all str_to_title
-#' @importFrom rlang enquo
+#' @importFrom rlang enquo .data
 #' @importFrom tidyr drop_na
 NULL
 
