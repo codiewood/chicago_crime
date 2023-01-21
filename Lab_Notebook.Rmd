@@ -5,6 +5,11 @@ output: pdf_document
 date: "January 2023"
 ---
 
+```{r}
+theme_set(theme_minimal())
+source("chicri/R/utils.R")
+
+```
 # Introduction
 
 ## Computational Techniques
@@ -26,17 +31,15 @@ The Chicago Crime dataset stored online is regularly updated on a daily basis. I
 
 For tests, we used the `testthat` package. This creates a new directory `./tests/testthat/` to be populated with unit tests for the package functions. Although the tests can be run alone, generally, we made use of the `usethis::check()` command. This relies on the function `rcmdcheck::rcmdcheck()`, which not only runs the tests, but also carries out other checks for the package build. These include:
 
-- Checking the package installs correctly.
+- Checking the package installs correctly,
 
-- Checking for missing documentation.
+- Checking for missing documentation,
 
-- Automatically runs examples in documentation, to check they run successfully.
+- Checking for undefined variables,
 
-- Checks for undefined variables.
+- Checking for missing dependencies.
 
-- Checks for missing dependencies.
-
-In order to ensure that tests and checks were run on a regular basis, continuous integration was set up using Github Actions. The status of this action can be seen in our package description markdown file. For each pull request and push to the main branch, this checked our package on multiple operating systems (WIndows, Ubuntu and MacOS). This helped to ensure that when writing our code, we did not introduce any changes which broke functionality.
+In order to ensure that tests and checks were run on a regular basis, continuous integration was set up using Github Actions. The status of this action can be seen in our package description markdown file. For each pull request and push to the main branch, this checked our package on multiple operating systems (Windows, Ubuntu and MacOS). This helped to ensure that when writing our code, we did not introduce any changes which broke functionality.
 
 ### Parallel Programming
 
@@ -49,6 +52,7 @@ df <- load_crimes_API(year = NULL)
 ```
 
 ```{r, include = FALSE}
+library(tidyverse)
 df<- read_csv("~/Desktop/project/data_API.csv", show_col_types = FALSE)
 df <- df %>% long_variables()
 ```
@@ -56,19 +60,45 @@ df <- df %>% long_variables()
 ## Variables to Keep
 
 # Predicting Crimes Spatially and Temporally 
-For this task we implement a general additive model (GAM) using the `gam()` function from the `mvgc` package.
+For this task we implement a general additive model (GAM) using the `gam()` function from the `mgcv` package.
 
 ## Weekly and Monthly Predictions
 
 We use the `count_cases()` function to obtain weekly and monthly counts
 ```{r}
-week_data <- df %>% count_cases(date_level = "week")
+library(tidyverse)
+library(lubridate)
+week_count <- df %>% count_cases(date_level = "week", date_end = as.Date("2019-12-31"))
 
-
+ggplot(data =week_count) +
+  geom_point(aes(x= `Week Start`, y = Count), color = "steelblue3", alpha = 0.5)
 ```
+We can see that there is a drop in early 2020 (likely due to the COVID pandemic), and so we only consider data from 2019 or earlier when fitting our model. We then split the data into testing and training sets:
+
+```{r, warning=FALSE}
+library(mgcv)
+
+week_data <- week_count %>% filter(Year <= 2019)
+
+week_train <- week_count %>% filter(Year <2019) 
+week_test <- week_count %>% filter(Year == 2019)
+
+model_week <- gam(Count ~ s(Week, bs = "cc") + Year, data = week_train, family = "poisson")
+
+week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data" = "Train")
+
+week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test)), "Data" = "Test")
 
 
 
+week_dat <- rbind(week_train, week_test)
+
+
+p <-ggplot(data = week_dat) +
+  geom_point(aes(x = `Week Start` , y = Count), color = "steelblue3", alpha =0.5) +
+  geom_line(aes(x = `Week Start`, y = Predicted)) 
+p
+```
 
 
 
