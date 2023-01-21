@@ -6,7 +6,7 @@
 #' @import magrittr
 #' @import forcats
 #' @import dplyr
-#' @importFrom rlang :=
+#' @importFrom rlang := .data
 NULL
 
 #' Significance test for features
@@ -210,4 +210,26 @@ mnlr_kfold_cv.df <- function(X, y, k, n_reps = 5, metrics) {
     }
   }
   return(list(overall = df_overall, byclass = df_byclass))
+}
+
+mean_repeat_metrics <- function(results,type,metrics=NULL){
+  if(type == "class"){
+    #BEEP doesnt work yet for generic metric list
+    repeat_means <- results$byclass %>%
+    dplyr::group_by(Class,Repeat) %>%
+    dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
+                     "Average Specificity" = mean(Specificity),
+                     "Average Balanced Accuracy" = mean(`Balanced Accuracy`))
+  }
+  else if(type == "overall"){
+    repeat_means <- results$overall %>%
+      dplyr::group_by(Repeat) %>%
+      dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
+                       "Average NIR" = mean(NIR),
+                       "Maximum P Value (Acc > NIR)" = max(Pval))
+  }
+  repeat_means <- repeat_means %>%
+    dplyr::relocate(Repeat) %>%
+    dplyr::arrange(Repeat)
+  return(repeat_means)
 }
