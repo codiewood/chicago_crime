@@ -1,19 +1,19 @@
 ---
 title: "Using Regression and Classification Techniques on Chicago Crime Dataset"
-author: "Rahil Morjaria, Codie Wood, Rachel Wood"
-output: pdf_document
-date: "January 2023"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-01-09"
 ---
+
+
 
 ```{r}
 theme_set(theme_minimal())
 source("chicri/R/utils.R")
 
 ```
-# Introduction
-
 ## Computational Techniques
-
 ### Package Building
 Packages are a key part of producing reproducible R code. They include R functions which can be reused, the documentation that describes how to use them, and sometimes sample data. In the construction of our `chicri` package, we mainly used the `devtools` and `usethis` packages. We followed the guidelines and usage principles detailed in
 [R Packages (Second Edition)]\url{https://r-pkgs.org/}
@@ -24,12 +24,12 @@ BEEP bibliography? BEEP, in order to ensure our package was consistent with wide
 When documenting the various functions in the package, we used the `roxygen2` package. This package automatically creates `.Rd` documentation files for functions from comments added as part of the function definitions. Using this framework allows the code and documentation to coexist and be updated alongside eachother, ensuring consistency.
 
 ### Application Programming Interface (API) Querying
-
+ 
 The Chicago Crime dataset stored online is regularly updated on a daily basis. It has millions of rows of data, and each row contains a total of 22 features which have been recorded. As such, the full data is incredibly large and so costly to store. As such, we chose not to include data files in the package. Instead, we used the `RSocrata` package to interact with the online data portal and pull the data. The function `load_crimes_API()` allows the user to directly download the dataset into R, via the function `read.socrata()`, and also to specify a particular year from which the data should be loaded.
 
 ## Testing, GitHub and Continuous Integration
-
 For tests, we used the `testthat` package. This creates a new directory `./tests/testthat/` to be populated with unit tests for the package functions. Although the tests can be run alone, generally, we made use of the `usethis::check()` command. This relies on the function `rcmdcheck::rcmdcheck()`, which not only runs the tests, but also carries out other checks for the package build. These include:
+ ## Package Description
 
 - Checking the package installs correctly.
 
@@ -46,6 +46,7 @@ In order to ensure that tests and checks were run on a regular basis, continuous
 ### Parallel Programming
 
 BEEP rahil did this so should probs talk about it BEEP
+
 
 # Exploratory Data Analysis
 Our data can be loaded using the `load_crimes_API()` function from the `chicri` package:
@@ -80,16 +81,14 @@ We can see that there is a drop in early 2020 (likely due to the COVID pandemic)
 ```{r, warning=FALSE}
 library(mgcv)
 
-week_data <- week_count %>% filter(Year <= 2019)
-
-week_train <- week_count %>% filter(Year <2019) 
-week_test <- week_count %>% filter(Year == 2019)
+week_train <- week_count %>% filter(Year <2018) 
+week_test <- week_count %>% filter(Year >= 2018)
 
 model_week <- gam(Count ~ s(Week, bs = "cc") + Year, data = week_train, family = "poisson")
 
 week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data" = "Train")
 
-week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test)), "Data" = "Test")
+week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
 
 
 
@@ -98,7 +97,7 @@ week_dat <- rbind(week_train, week_test)
 
 p <-ggplot(data = week_dat) +
   geom_point(aes(x = `Week Start` , y = Count), color = "steelblue3", alpha =0.5) +
-  geom_line(aes(x = `Week Start`, y = Predicted)) 
+  geom_line(aes(x = `Week Start`, y = Predicted, color = Data)) 
 p
 ```
 
