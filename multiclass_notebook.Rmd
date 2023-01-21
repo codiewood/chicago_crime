@@ -263,8 +263,8 @@ metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
 
 We begin by splitting our data into our response variable and the variables we want to include in our models. We look at three potential models:
 1. No Location: Primary Type ~ Arrest + Domestic + Day + Time
-2. District: Primary Type ~ Arrest + Domestic + Day + Time + District
-3. District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
+2. District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
+3. District: Primary Type ~ Arrest + Domestic + Day + Time + District
 
 ```{r}
 # Splitting response data and different model variable sets
@@ -276,17 +276,14 @@ X_district <- dat %>% select(c(Arrest, Domestic, Day, Time, District))
 
 We evaluate the model performance using the `mnlr_kfold_cv.df()` function, which outputs a data frame containing the metrics as evaluated for the model fitted on each fold for each repeat. Our package also contains the `mnlr_kfold_cv.list()` function, which performs the same operations and outputs a list based format of our values, as well as their averages. We use the data frame function for our analysis, however, as its output can be easily manipulated to calculate averages, investigate metric distributions. Further, the data frame outputs can be easily converted into an easy to read table, ideal for producing result documentation, which the list output cannot.
 
-BEEP this has 80 variables, is that worth mentioning BEEP
 ```{r, eval=FALSE}
 mnlr_results_noloc.df <- mnlr_kfold_cv.df(X = X_noloc, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
-BEEP this has 144 variables BEEP
 ```{r, eval = FALSE}
 mnlr_results_area.df <- mnlr_kfold_cv.df(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
-BEEP this has 416 variables BEEP
 ```{r, eval=FALSE}
 mnlr_results_district.df <- mnlr_kfold_cv.df(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
@@ -301,6 +298,9 @@ load("chicri/temp_data/mnlr_results_district_df.RData")
 
 BEEP am attempting to write a function that will do this but unsure how to get around the fact that for class based bit, metrics might not be those 3 BEEP
 ```{r}
+noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "overall")
+noloc_overall_means
+
 noloc_class_means <- mnlr_results_noloc.df$byclass %>%
   dplyr::group_by(Class,Repeat) %>%
   dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
@@ -309,12 +309,19 @@ noloc_class_means <- mnlr_results_noloc.df$byclass %>%
   dplyr::relocate(Repeat) %>%
   dplyr::arrange(Repeat)
 
-noloc_class_means
-
-noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "overall")
-noloc_overall_means
 ```
 BEEP note that the overall means all look the same because of rounding, they aren't actually all equal BEEP
+
+```{r}
+noloc_avg_class_means <- noloc_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+noloc_avg_class_means
+```
+
+
+We use the `knitr::kable()` functionality, as well as the `kableExtra` package, to export our results into a format suitable for our report.
 
 ```{r}
 noloc_kab <- knitr::kable(noloc_overall_means,
@@ -325,6 +332,14 @@ noloc_kab <- knitr::kable(noloc_overall_means,
 noloc_kab
 ```
 
+```{r}
+noloc_kab_class <- knitr::kable(noloc_avg_class_means,
+                          format="latex",
+                          digits = 4,
+                          align = c("l",rep("c",3))) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+noloc_kab_class
+```
 
 ```{r}
 area_class_means <- mnlr_results_area.df$byclass %>%
@@ -341,12 +356,29 @@ area_overall_means <- mean_repeat_metrics(mnlr_results_area.df, type = "overall"
 ```
 
 ```{r}
+area_avg_class_means <- area_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+area_avg_class_means
+```
+
+```{r}
 area_kab <- knitr::kable(area_overall_means,
                           format="latex",
                           digits = 4,
                           align = rep("c",4)) %>%
   kableExtra::kable_styling(latex_options = "hold_position")
 area_kab
+```
+
+```{r}
+area_kab_class <- knitr::kable(area_avg_class_means,
+                          format="latex",
+                          digits = 4,
+                          align = c("l",rep("c",3))) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+area_kab_class
 ```
 
 
@@ -365,6 +397,15 @@ district_overall_means <- mean_repeat_metrics(mnlr_results_district.df, type = "
 ```
 
 ```{r}
+district_avg_class_means <- district_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+district_avg_class_means
+```
+
+
+```{r}
 district_kab <- knitr::kable(district_overall_means,
                           format="latex",
                           digits = 4,
@@ -373,7 +414,14 @@ district_kab <- knitr::kable(district_overall_means,
 district_kab
 ```
 
-BEEP interpretations of the above and get into latex tables to put in report? BEEP
+```{r}
+district_kab_class <- knitr::kable(district_avg_class_means,
+                          format="latex",
+                          digits = 4,
+                          align = c("l",rep("c",3))) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+district_kab_class
+```
 
 BEEP think best model is using area because not much difference going to district and also has the advantage of lesser computational complexity so easier to run and interpret. Probably explain this in latex report not here? BEEP
 
@@ -388,7 +436,7 @@ BEEP load for knitting purposes BEEP
 ```{r, include=FALSE}
 load("chicri/temp_data/mnlr_area_model.RData")
 ```
-We can look at a subset of the predictive probabilities produced by the model, as well as the coefficient values, in order to interpret the relationships between our observed variables and the log odds of a particular class.
+We look at a subset of the predictive probabilities produced by the model, as well as the coefficient values, in order to interpret the relationships between our observed variables and the log odds of a particular class.
 ```{r}
 head(pp <- fitted(mnlr$model)) #Predictive probabilities
 ```
@@ -463,15 +511,18 @@ tod_noloc_class_means <- tod_results_noloc$byclass %>%
 
 tod_noloc_class_means
 
-tod_noloc_overall_means <- tod_results_noloc$overall %>%
-  dplyr::group_by(Repeat) %>%
-  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
-                   "Average NIR" = mean(NIR),
-                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
+tod_noloc_overall_means <- mean_repeat_metrics(tod_results_noloc,type="overall")
 
 tod_noloc_overall_means
+```
+
+```{r}
+tod_noloc_kab <- knitr::kable(tod_noloc_overall_means,
+                          format="latex",
+                          digits = 4,
+                          align = rep("c",4)) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+tod_noloc_kab
 ```
 
 ```{r}
@@ -485,16 +536,20 @@ tod_area_class_means <- tod_results_area$byclass %>%
 
 tod_area_class_means
 
-tod_area_overall_means <- tod_results_area$overall %>%
-  dplyr::group_by(Repeat) %>%
-  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
-                   "Average NIR" = mean(NIR),
-                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
+tod_area_overall_means <- mean_repeat_metrics(tod_results_area,type="overall")
 
 tod_area_overall_means
 ```
+
+```{r}
+tod_area_kab <- knitr::kable(tod_area_overall_means,
+                          format="latex",
+                          digits = 4,
+                          align = rep("c",4)) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+tod_area_kab
+```
+
 
 ```{r}
 tod_district_class_means <- tod_results_district$byclass %>%
@@ -507,15 +562,18 @@ tod_district_class_means <- tod_results_district$byclass %>%
 
 tod_district_class_means
 
-tod_district_overall_means <- tod_results_district$overall %>%
-  dplyr::group_by(Repeat) %>%
-  dplyr::summarise("Average Overall Accuracy" = mean(Accuracy),
-                   "Average NIR" = mean(NIR),
-                   "Maximum P Value (Acc > NIR)" = max(Pval)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
+tod_district_overall_means <- mean_repeat_metrics(tod_results_district,type="overall")
 
 tod_district_overall_means
+```
+
+```{r}
+tod_district_kab <- knitr::kable(tod_district_overall_means,
+                          format="latex",
+                          digits = 4,
+                          align = rep("c",4)) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+tod_district_kab
 ```
 Each of the models have similar overall accuracy across our repeats, so we prefer the simplest model with the fewest variables as this has minimal computational cost to run. BEEP this is super arbitrary BEEP
 ```{r, eval=FALSE}
