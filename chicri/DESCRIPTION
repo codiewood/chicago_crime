@@ -10,10 +10,10 @@ URL: https://github.com/codiewood/chicago_crime/chicri
 BugReports: https://github.com/codiewood/chicago_crime/issues
 Depends: 
     dplyr (>= 1.0.10),
+    forcats,
     magrittr
 Imports: 
     caret,
-    forcats,
     ggplot2,
     lubridate,
     nnet,
