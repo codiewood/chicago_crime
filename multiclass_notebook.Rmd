@@ -16,11 +16,17 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 ```
 
-In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occured, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
+In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occurRed, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
 
 Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
 
 ```{r}
+devtools::install_github("codiewood/chicago_crime/chicri")
+library(chicri)
+```
+
+
+```{r, eval=FALSE}
 #wont need this when loading package
 require(nnet) # For multinomial regression
 require(tidyverse) # For data manip
@@ -41,6 +47,7 @@ theme_set(theme_bw())
 Due to the extremely large size of the full data set, it is computationally intensive to download, store and use to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019.
 
 ```{r}
+# data I want here should be a tibble format, with vars primary type, location desc, district, date, arrest, domestic, x coord and y coord. if different, will need to tweak code later on.
 dat <- load_crimes_csv("chicri/data/processed/Crimes_2019_Location_Type.csv")
 # API stuff below should give same data set
 #dat <- load_crimes_API(year="2019")
@@ -63,7 +70,7 @@ ggplot(dat) +
   geom_vline(xintercept=thr, colour="red")
 ```
 
-We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category.
+We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category. The least frequent category is SEX OFFENSE, which has 1310 occurences.
 
 ```{r}
 # Reordering and othering factor levels (for plots and analysis purposes)
@@ -260,9 +267,9 @@ metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
 ### Predicting Crime Type
 
 We begin by splitting our data into our response variable and the variables we want to include in our models. We look at three potential models:
-1) No Location: Primary Type ~ Arrest + Domestic + Day + Time
-2) District: Primary Type ~ Arrest + Domestic + Day + Time + District
-3) District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
+1. No Location: Primary Type ~ Arrest + Domestic + Day + Time
+2. District: Primary Type ~ Arrest + Domestic + Day + Time + District
+3. District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
 
 ```{r}
 # Splitting response data and different model variable sets
@@ -408,9 +415,9 @@ In the confusion matrix, we observe that the model only makes predictions for th
 ## Predicting Time of Crime
 
 As an extension to this multiclass classification task, we will also evaluate the performance of another multinomial regression classifier used to predict the time of day at which a crime occurred. We use the same methods as seen previously but now time of day is response variable and we exclude Time from our model. This gives us the three models:
-1) No Location: Time of Day ~ Primary Type + Arrest + Domestic + Day
-2) District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
-3) District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
+1. No Location: Time of Day ~ Primary Type + Arrest + Domestic + Day
+2. District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
+3. District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
 
 ```{r}
 #setting seed for reproducibility
