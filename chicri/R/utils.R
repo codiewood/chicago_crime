@@ -10,6 +10,8 @@
 #' @importFrom stringr str_replace_all str_to_title
 #' @importFrom rlang enquo .data
 #' @importFrom tidyr drop_na
+#' @import knitr
+#' @importFrom kableExtra kable_styling
 NULL
 
 #' Process Chicago Crime data
@@ -167,4 +169,20 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
                        digits = 2), "% of data values. \n"))
     }
     return(factor_vec)
+}
+
+#' Generate table for report
+#'
+#' @param data tibble containing data to be tabulated
+#' @param align String vector with ncol(data) elements, specifying the alignments of the columns. String options are "l", "c" and "r".
+#'
+#' @return knitr kable with latex format
+#' @export
+report_table <- function(data,align){
+  tab <- knitr::kable(data,
+                      format="latex",
+                      digits = 4,
+                      align = align) %>%
+    kableExtra::kable_styling(latex_options = "hold_position")
+  return(tab)
 }
