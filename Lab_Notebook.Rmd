@@ -101,7 +101,6 @@ week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data
 week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
 
 
-
 week_dat <- rbind(week_train, week_test)
 
 
@@ -115,12 +114,17 @@ p
 
 ## Weekly Predictions in Space
 
-We can now consider how the crime rates vary within Chicago using the community bounds. The shapefiles for these are available on the Chicago Data Portal, and are also contained in the `chicri` package. 
+We can now consider how the crime rates vary within Chicago using the community bounds. The shapefiles for these are available on the Chicago Data Portal, and the `chicri` package contains a function for loading them. 
 
+To include them in our `gam` model however, we need to use a Markov Random Field smooth. This creates an adjacency matrix for the community areas (based on whether any two areas share a vertex).
 ```{r}
-####### Load data
+community_map <- get_map()
 
-community_info <- left_join(average_crimes, socio_ind, by = c("community_area" = "ca"))
+community_list <- setNames(as.list(community_map$the_geom), nm = community_map$area)
+
+xt <- list(polys = community_list)
+
+spatial_model <- gam(count ~ s(month, bs = "cc") + year + s(community_area, bs = "mrf", xt = list(polys = community_list)), data = spatial_counts, family = "poisson")
 
 ```
 
