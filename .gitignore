@@ -46,3 +46,8 @@ vignettes/*.pdf
 
 # Backup files
 backup*
+
+# Latex files
+*.tex
+*.log
+/*_files/

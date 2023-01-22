@@ -2,11 +2,15 @@
 title: "Multiclass Lab Notebook"
 author: "Codie Wood"
 date: "2023-01-11"
-output: pdf_document
+output: 
+  pdf_document:
+    keep_tex: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      dev = 'pdf',
+                      pdf.options(encoding = "ISOLatin9.enc"))
 ```
 
 # Multi-class Classification
