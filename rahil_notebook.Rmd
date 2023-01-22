@@ -123,7 +123,7 @@ We see that only $21.7%$ of the data has `Arrest = TRUE`. For our first SVM mode
 
 
 ```{r}
-set.seed(1) # Setting seed for reproducibility
+set.seed(30700) # Setting seed for reproducibility
 trainIndex <- createDataPartition(crimes$Arrest, p = .05, 
                                   list = TRUE)
 
@@ -178,7 +178,6 @@ down_sample %>% count(Arrest)
 We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample).
 
 ```{r}
-set.seed(1)
 trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
                                  list = TRUE)
 
