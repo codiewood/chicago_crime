@@ -18,7 +18,6 @@ NULL
 plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){
    p <- ggplot() +
     geom_sf(data = data, aes(fill = get(variable))) +
-<<<<<<< HEAD
     scale_fill_viridis_c(name = legend.title,option = "plasma", trans = trans) +
     theme_void()
    return(p)

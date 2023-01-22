@@ -3,6 +3,7 @@
 #' @import sf
 #' @importFrom tidyr drop_na
 
+
 get_map <- function(map = "community_area"){
   if (map == "community_area"){
     community_map <- read.socrata("https://data.cityofchicago.org/resource/igwz-8jzy.csv")
