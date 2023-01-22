@@ -16,6 +16,8 @@ Depends:
 Imports: 
     caret,
     ggplot2,
+    kableExtra,
+    knitr,
     nnet,
     readr,
     rlang,
