@@ -4,14 +4,12 @@
 \alias{mean_repeat_metrics}
 \title{Calculate the means across folds of performance metrics}
 \usage{
-mean_repeat_metrics(results, type, metrics = NULL)
+mean_repeat_metrics(results, type)
 }
 \arguments{
 \item{results}{Output of `mnlr_kfold_cv.df`}
 
-\item{type}{String specifying which metric type to extract. Options are "class" or "overall"}
-
-\item{metrics}{A vector of strings of the by class metrics. Default is NULL.}
+\item{type}{String specifying which metric type to extract. Options are "class" or "overall". "class" should only be used for results containing exactly the by class metrics of Sensitivity, Specificty and Balanced Accuracy.}
 }
 \value{
 A tibble containing the metrics, averages over all folds, for each repeat.
