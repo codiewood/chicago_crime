@@ -57,7 +57,7 @@ crimes[c('Primary Type', 'District', 'Arrest', 'Domestic')] <- lapply(crimes[c('
 
 time.data <- crimes %>% mutate(Hour = as.factor(hour(crimes$Date))) %>% group_by(Hour) %>% dplyr::count(Arrest)
 
-crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
+crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)/24) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
 
 crimes[c('Primary Type', 'District', 'Arrest', 'Domestic','wkday')] <- lapply(crimes[c('Primary Type', 'District', 'Arrest', 'Domestic','wkday')],as.factor)
 
@@ -139,13 +139,13 @@ library(doParallel)
 
 #create a list of seeds, and change for each resampling
 #length is = (n_repeats*nresampling)+1
-
 seeds <- vector(mode = "list", length = 6)
 
 for(i in 1:5) seeds[[i]] <- sample.int(n=1000, 3)
 
 #for the last model
 seeds[[6]]<-sample.int(1000, 1)
+
 # we will reuse these seeds for different models
 
 #Define function to Cross-Validation in Parallel
