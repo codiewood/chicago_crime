@@ -139,20 +139,21 @@ library(doParallel)
 
 #create a list of seeds, and change for each resampling
 #length is = (n_repeats*nresampling)+1
+
 seeds <- vector(mode = "list", length = 6)
 
 for(i in 1:5) seeds[[i]] <- sample.int(n=1000, 3)
 
 #for the last model
 seeds[[6]]<-sample.int(1000, 1)
-
 # we will reuse these seeds for different models
+
+#Define function to Cross-Validation in Parallel
+control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
 
 cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
-
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
 
 svm.model <- train(Arrest ~ .,
                    data = crimesTest,
@@ -191,8 +192,6 @@ cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
-
 svm.modelD <- train(Arrest ~ .,
                    data = crimesTestD,
                    trControl = control,
@@ -228,8 +227,6 @@ cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
-
 svm.modelU <- train(Arrest ~ .,
                    data = crimesTestU,
                    trControl = control,
@@ -246,8 +243,6 @@ We can similarly train a logistic regression model using 5-fold cross validation
 cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
-
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
 
 log.model <- train(Arrest ~ .,
                data = crimes,
