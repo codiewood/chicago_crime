@@ -10,6 +10,8 @@
 #' @importFrom stringr str_replace_all str_to_title
 #' @importFrom rlang enquo .data
 #' @importFrom tidyr drop_na
+#' @import knitr
+#' @importFrom kableExtra kable_styling
 NULL
 
 #' Process Chicago Crime data
@@ -70,7 +72,6 @@ long_to_short <- function(string){
 #' @export
 long_variables <- function(data){
   short_names <- colnames(data)
-
   long_names <- vector(length = length(short_names))
   for (i in 1:length(short_names)){
     if(short_names[i] == "iucr"){
@@ -170,95 +171,18 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
     return(factor_vec)
 }
 
-#' Count the number of crimes in a given time frame and location level
+#' Generate table for report
 #'
-#' @param df Data frame
-#' @param date_start Date to begin the count
-#' @param date_end Date to end the count
-#' @param location_level Column name of the relevant location level from the data set.
-#' @param date_level String specifying the date level required. Options are "day", "week" or "month".
+#' @param data tibble containing data to be tabulated
+#' @param align String vector with ncol(data) elements, specifying the alignments of the columns. String options are "l", "c" and "r".
 #'
-#' @return Data frame containing the relevant count data
+#' @return knitr kable with latex format
 #' @export
-count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =NULL, date_level = "month"){
-  if (!all(names(df) == tolower(names(df)))){
-    df <- short_variables(df)
-  }
-
-  if (is.null(date_start)){ #if no start date, set to before first observation in data
-    date_start <- as.Date("01-01-2000")
-  }
-  if (is.null(date_end)){ #if no end date, set to current date
-    date_end <- Sys.Date()
-  }
-
-  if (is.null(location_level)){ #if not including location
-    if (date_level == "day"){ #if day selected
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(year = year(date), month = month(date), yday = day(date)) %>%
-        dplyr::group_by(year, month,day) %>%
-        dplyr::summarise(count = n())
-    } else if (date_level == "week") { #if week selected
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
-        dplyr::group_by(week_start) %>%
-        dplyr::summarise(count = n()) %>%
-        dplyr::mutate(year = year(week_start), week = week(week_start))
-    } else if (date_level == "month"){ #if month selected
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(year = year(date), month = month(date)) %>%
-        dplyr::group_by(year, month) %>%
-        dplyr::summarise(count = n())
-    }
-  } else if (location_level == "community_area"){ #if we do include location
-
-    if (date_level == "day"){
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(year = year(date), month = month(date), day = day(date)) %>%
-        dplyr::group_by(year, month,day, community_area) %>%
-        dplyr::summarise(count = n())
-    } else if (date_level == "week") {
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
-        dplyr::group_by(week_start, community_area) %>%
-        dplyr::summarise(count = n()) %>%
-        dplyr::mutate(year = year(week_start), week = week(week_start))
-    } else if (date_level == "month"){
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(year = year(date), month = month(date)) %>%
-        dplyr::group_by(year, month, community_area) %>%
-        dplyr::summarise(count = n())
-    }
-  } else if (location_level == "district") {
-    if (date_level == "day"){
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(year = year(date), month = month(date), day = day(date)) %>%
-        dplyr::group_by(year, month,day, district) %>%
-        dplyr::summarise(count = n())
-    } else if (date_level == "week") {
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
-        dplyr::group_by(week_start, district) %>%
-        dplyr::summarise(count = n()) %>%
-        dplyr::mutate(year = year(week_start), week = week(week_start))
-    } else if (date_level == "month"){
-      count_dat <- df %>%
-        dplyr::filter(date > date_start, date < date_end) %>%
-        dplyr::mutate(year = year(date), month = month(date)) %>%
-        dplyr::group_by(year, month, district) %>%
-        dplyr::summarise(count = n())
-    }
-
-  }
-  count_dat <- long_variables(count_dat)
-  return(count_dat)
+report_table <- function(data,align){
+  tab <- knitr::kable(data,
+                      format="latex",
+                      digits = 4,
+                      align = align) %>%
+    kableExtra::kable_styling(latex_options = "hold_position")
+  return(tab)
 }
-

@@ -11,11 +11,13 @@ BugReports: https://github.com/codiewood/chicago_crime/issues
 Depends: 
     dplyr (>= 1.0.10),
     forcats,
+    lubridate,
     magrittr
 Imports: 
     caret,
     ggplot2,
-    lubridate,
+    kableExtra,
+    knitr,
     nnet,
     readr,
     rlang,

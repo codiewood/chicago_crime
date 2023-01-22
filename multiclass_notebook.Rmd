@@ -296,19 +296,13 @@ load("chicri/temp_data/mnlr_results_area_df.RData")
 load("chicri/temp_data/mnlr_results_district_df.RData")
 ```
 
-BEEP am attempting to write a function that will do this but unsure how to get around the fact that for class based bit, metrics might not be those 3 BEEP
+We then create tables of our results, using the `mean_report_metrics()` function
+
 ```{r}
+noloc_class_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "class")
+
 noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "overall")
 noloc_overall_means
-
-noloc_class_means <- mnlr_results_noloc.df$byclass %>%
-  dplyr::group_by(Class,Repeat) %>%
-  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
-                   "Average Specificity" = mean(Specificity),
-                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
 ```
 BEEP note that the overall means all look the same because of rounding, they aren't actually all equal BEEP
 
@@ -320,35 +314,21 @@ noloc_avg_class_means <- noloc_class_means %>%
 noloc_avg_class_means
 ```
 
-
-We use the `knitr::kable()` functionality, as well as the `kableExtra` package, to export our results into a format suitable for our report.
+We use the `knitr::kable()` functionality, as well as the `kableExtra` package, to export our results into a format suitable for our report. This is contained within the `read_table()` function.
 
 ```{r}
-noloc_kab <- knitr::kable(noloc_overall_means,
-                          format="latex",
-                          digits = 4,
-                          align = rep("c",4)) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+lc <- c("l",rep("c",3))
+noloc_kab <- report_table(noloc_overall_means, rep("c",4))
 noloc_kab
 ```
 
 ```{r}
-noloc_kab_class <- knitr::kable(noloc_avg_class_means,
-                          format="latex",
-                          digits = 4,
-                          align = c("l",rep("c",3))) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+noloc_kab_class <- report_table(noloc_avg_class_means, c("l",rep("c",3)))
 noloc_kab_class
 ```
 
 ```{r}
-area_class_means <- mnlr_results_area.df$byclass %>%
-  dplyr::group_by(Class,Repeat) %>%
-  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
-                   "Average Specificity" = mean(Specificity),
-                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
+area_class_means <- mean_repeat_metrics(mnlr_results_area.df, type = "class")
 
 area_class_means
 
@@ -364,35 +344,18 @@ area_avg_class_means
 ```
 
 ```{r}
-area_kab <- knitr::kable(area_overall_means,
-                          format="latex",
-                          digits = 4,
-                          align = rep("c",4)) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+area_kab <- report_table(area_overall_means, rep("c",4))
 area_kab
 ```
 
 ```{r}
-area_kab_class <- knitr::kable(area_avg_class_means,
-                          format="latex",
-                          digits = 4,
-                          align = c("l",rep("c",3))) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+area_kab_class <- report_table(area_avg_class_means,c("l",rep("c",3)))
 area_kab_class
 ```
 
 
 ```{r}
-district_class_means <- mnlr_results_district.df$byclass %>%
-  dplyr::group_by(Class,Repeat) %>%
-  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
-                   "Average Specificity" = mean(Specificity),
-                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
-district_class_means
-
+district_class_means <- mean_repeat_metrics(mnlr_results_district.df, type = "class")
 district_overall_means <- mean_repeat_metrics(mnlr_results_district.df, type = "overall")
 ```
 
@@ -401,25 +364,16 @@ district_avg_class_means <- district_class_means %>%
   dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
                    "Average Specificity" = mean(`Average Specificity`),
                    "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
-district_avg_class_means
 ```
 
 
 ```{r}
-district_kab <- knitr::kable(district_overall_means,
-                          format="latex",
-                          digits = 4,
-                          align = rep("c",4)) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+district_kab <- report_table(district_overall_means, rep("c",4))
 district_kab
 ```
 
 ```{r}
-district_kab_class <- knitr::kable(district_avg_class_means,
-                          format="latex",
-                          digits = 4,
-                          align = c("l",rep("c",3))) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+district_kab_class <- report_table(district_avg_class_means, c("l",rep("c",3)))
 district_kab_class
 ```
 
@@ -501,88 +455,87 @@ load("chicri/temp_data/tod_results_district.RData")
 ```
 
 ```{r}
-tod_noloc_class_means <- tod_results_noloc$byclass %>%
-  dplyr::group_by(Class,Repeat) %>%
-  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
-                   "Average Specificity" = mean(Specificity),
-                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
-tod_noloc_class_means
+tod_noloc_class_means <- mean_repeat_metrics(tod_results_noloc,type="class")
 
 tod_noloc_overall_means <- mean_repeat_metrics(tod_results_noloc,type="overall")
-
-tod_noloc_overall_means
 ```
 
 ```{r}
-tod_noloc_kab <- knitr::kable(tod_noloc_overall_means,
-                          format="latex",
-                          digits = 4,
-                          align = rep("c",4)) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+tod_noloc_avg_class_means <- tod_noloc_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+
+```{r}
+tod_noloc_kab <- report_table(tod_noloc_overall_means, rep("c",4))
 tod_noloc_kab
 ```
 
 ```{r}
-tod_area_class_means <- tod_results_area$byclass %>%
-  dplyr::group_by(Class,Repeat) %>%
-  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
-                   "Average Specificity" = mean(Specificity),
-                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
-tod_area_class_means
-
-tod_area_overall_means <- mean_repeat_metrics(tod_results_area,type="overall")
-
-tod_area_overall_means
+tod_noloc_kab_class <- report_table(tod_noloc_avg_class_means, c("l",rep("c",3)))
+tod_noloc_kab_class
 ```
 
 ```{r}
-tod_area_kab <- knitr::kable(tod_area_overall_means,
-                          format="latex",
-                          digits = 4,
-                          align = rep("c",4)) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+tod_area_class_means <- mean_repeat_metrics(tod_results_area,type="class")
+
+tod_area_overall_means <- mean_repeat_metrics(tod_results_area,type="overall")
+```
+
+```{r}
+tod_area_avg_class_means <- tod_area_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+
+```{r}
+tod_area_kab <- report_table(tod_area_overall_means, rep("c",4))
 tod_area_kab
 ```
 
+```{r}
+tod_area_kab_class <- report_table(tod_area_avg_class_means, c("l",rep("c",3)))
+tod_area_kab_class
+```
+
 
 ```{r}
-tod_district_class_means <- tod_results_district$byclass %>%
-  dplyr::group_by(Class,Repeat) %>%
-  dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
-                   "Average Specificity" = mean(Specificity),
-                   "Average Balanced Accuracy" = mean(`Balanced Accuracy`)) %>%
-  dplyr::relocate(Repeat) %>%
-  dplyr::arrange(Repeat)
-
-tod_district_class_means
+tod_district_class_means <- mean_repeat_metrics(tod_results_district,type="class")
 
 tod_district_overall_means <- mean_repeat_metrics(tod_results_district,type="overall")
-
-tod_district_overall_means
 ```
 
 ```{r}
-tod_district_kab <- knitr::kable(tod_district_overall_means,
-                          format="latex",
-                          digits = 4,
-                          align = rep("c",4)) %>%
-  kableExtra::kable_styling(latex_options = "hold_position")
+tod_district_avg_class_means <- tod_district_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+
+```{r}
+tod_district_kab <- report_table(tod_district_overall_means, rep("c",4))
 tod_district_kab
 ```
-Each of the models have similar overall accuracy across our repeats, so we prefer the simplest model with the fewest variables as this has minimal computational cost to run. BEEP this is super arbitrary BEEP
+
+```{r}
+tod_district_kab_class <- report_table(tod_district_avg_class_means, c("l",rep("c",3)))
+tod_district_kab_class
+```
+
+
+Each of the models have similar overall accuracy across our repeats, so we prefer the simplest model with the fewest variables as this has minimal computational cost to run.
 ```{r, eval=FALSE}
 set.seed(1)
 ind <- sample(2,nrow(dat),replace=TRUE, prob = c(0.8,0.2))
 index <- which(ind == 2)
 tod_mnlr <- mnlr_cv_indexed(X_tod_noloc,y_tod,index,return_model = TRUE)
 ```
-BEEP load for knitting purposes BEEP
+
 ```{r, include=FALSE}
 load("chicri/temp_data/tod_noloc_model.RData")
 ```
@@ -607,6 +560,7 @@ tod_confusion_plot <- ggplot(tod_confusion_df, aes(x=Reference, y = Prediction, 
   scale_y_discrete(limits = rev) +
   scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
   geom_text(aes(label=Freq), color="black") # printing values
+
 tod_confusion_plot
 ```
 

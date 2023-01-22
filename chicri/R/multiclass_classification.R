@@ -215,14 +215,16 @@ mnlr_kfold_cv.df <- function(X, y, k, n_reps = 5, metrics) {
 #' Calculate the means across folds of performance metrics
 #'
 #' @param results Output of `mnlr_kfold_cv.df`
-#' @param type String specifying which metric type to extract. Options are "class" or "overall"
-#' @param metrics A vector of strings of the by class metrics. Default is NULL.
+#' @param type String specifying which metric type to extract. Options are "class" or "overall". "class" should only be used for results containing exactly the by class metrics of Sensitivity, Specificty and Balanced Accuracy.
 #'
 #' @return A tibble containing the metrics, averages over all folds, for each repeat.
 #' @export
-mean_repeat_metrics <- function(results,type,metrics=NULL){
+mean_repeat_metrics <- function(results,type){
   if(type == "class"){
-    #BEEP doesnt work yet for generic metric list
+    expected_vars <- c("Repeat","Fold","Class","Sensitivity","Specificity","Balanced Accuracy")
+    if(!setequal(expected_vars,colnames(results$byclass))){ #If metrics are not as expected
+      stop("Please only call the type class if you are inputting results containing the by class metrics of Sensitivity, Specificty and Balanced Accuracy")
+    }
     repeat_means <- results$byclass %>%
     dplyr::group_by(Class,Repeat) %>%
     dplyr::summarise("Average Sensitivity" = mean(Sensitivity),
