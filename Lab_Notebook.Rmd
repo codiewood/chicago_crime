@@ -3,12 +3,17 @@ title: "Using Regression and Classification Techniques on Chicago Crime Dataset"
 author: "Rahil Morjaria, Codie Wood, Rachel Wood"
 output: pdf_document
 date: "January 2023"
-output:
-  pdf_document: default
-  html_document: default
-date: "2023-01-09"
+output: 
+  pdf_document:
+    keep_tex: yes
+date: "January 2023"
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      dev = 'pdf',
+                      pdf.options(encoding = "ISOLatin9.enc"))
+```
 
 
 ```{r}
@@ -116,6 +121,29 @@ p <-ggplot(data = week_dat) +
 p
 ```
 
+
+While this model looks reasonable, we also perform some model checking. The `draw()` function allows us to visualise the partial effects of the model:
+
+```{r, warning = FALSE}
+library(gratia)
+library(patchwork)
+library(mgcViz)
+effects <- draw(model_week)
+
+effects
+
+gam.check(model_week)
+
+check <- model_week %>% getViz() 
+
+check(check,
+      a.qq = list(a.cipoly = list(fill = "light blue")), 
+      a.respoi = list(size = 0.5), 
+      a.hist = list(bins = 10)
+      )
+
+```
+
 ## Weekly Predictions in Space
 
 We can now consider how the crime rates vary within Chicago using the community bounds. The shapefiles for these are available on the Chicago Data Portal, and the `chicri` package contains a function for loading them. 
@@ -124,6 +152,7 @@ To include them in our `gam` model however, we need to use a Markov Random Field
 ```{r}
 library(RSocrata)
 library(sf)
+library(chicri)
 community_map <- get_map() %>%
   mutate(Area = as.factor(Area))
 
@@ -157,7 +186,17 @@ spatial_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = 
 
 summary(spatial_model)
 
+check_spatial <- spatial_model %>% getViz() 
+
+check(check_spatial,
+      a.qq = list(a.cipoly = list(fill = "light blue")), 
+      a.respoi = list(size = 0.5), 
+      a.hist = list(bins = 10)
+      )
 ```
+
+
+
 
 ### Incorporating Socio-Economic Indicators
 The Chicago Data Portal also contains a dataset with three variables for each community area:
@@ -179,12 +218,10 @@ socio_ind %>% select(-`Community Area`) %>% cor() %>% corrplot(method = "square"
 We can see that all of these values are highly correlated, and so we only need to include one in an analysis. For this we choose the hardship index as it is made up partly of the other two indicators. We now fit the model with the same method as before:
 
 ```{r}
-spatial_count <- df %>% count_cases(location_level = "community_area") %>%
+spatial_count <- df %>% count_cases(location_level = "community_area", date_level = "week") %>%
   rename("CommunityArea" = "Community Area") %>%
   mutate(CommunityArea = as.factor(CommunityArea))
 
-spatial_count <- spatial_count %>%
-  filter(Year >= 2007, Year <=2011)
 socio_data <- spatial_count %>% left_join(socio_ind, by = c("CommunityArea" = "Community Area")) %>%
   select(-c(`Poverty Rate`)) %>%
   rename(HardshipIndex = `Hardship Index`)
@@ -192,9 +229,37 @@ socio_data <- spatial_count %>% left_join(socio_ind, by = c("CommunityArea" = "C
 socio_train <- socio_data %>% filter(Year < 2019) 
 socio_test <- socio_data %>% filter(Year >= 2019)
 
-socio_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt) + HardshipIndex, data = socio_data, family = "poisson")
+socio_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt) + HardshipIndex, data = socio_train, family = "poisson")
 
 summary(socio_model)
 ```
+# Binomial Classification
 
 
+```{r}
+crimes <- df %>% 
+  filter(year(Date) == 2019, !(District == 031)) %>%
+  select(-c(`Community Area`, `Latitude`, `Longitude`)) %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate(day = yday(Date), 
+         wkday = wday(Date), 
+         Hour = as.numeric(hour(Date) + minute(Date)/60)/24)
+
+crimes <- crimes %>%
+  mutate(`Primary Type` = othering(`Primary Type`, 1000)) %>%
+  mutate(`Primary Type` = fct_collapse(`Primary Type`, "OTHER" = c("OTHER", "OTHER OFFENSE")))
+  droplevels()
+
+
+
+time.data <- crimes %>% 
+  mutate(Hour = as.factor(hour(crimes$Date))) %>% 
+  group_by(Hour) %>% 
+  dplyr::count(Arrest)
+```
+
+For some EDA on the importance of including time data in our model for classifying likelihood of arrest, we plot the probability of arrest for each hour (using 2019 data), we see that the proportion of arrests are inconsistent depending on time - this could be due to types of crimes expected at each time. This makes it seem significant to at least include in the model. BEEP
+
+
+```{r}
+```
