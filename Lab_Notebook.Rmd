@@ -12,9 +12,14 @@ date: "2023-01-09"
 
 
 ```{r}
-theme_set(theme_minimal())
-source("chicri/R/utils.R")
+devtools::install_github("codiewood/chicago_crime/chicri") 
+```
 
+```{r, message = FALSE}
+library(tidyverse)
+theme_set(theme_minimal())
+cbpal <- c("#000000", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+library(chicri)
 ```
 ## Computational Techniques
 ### Package Building
@@ -32,7 +37,12 @@ The Chicago Crime dataset stored online is regularly updated on a daily basis. I
 
 ## Testing, GitHub and Continuous Integration
 For tests, we used the `testthat` package. This creates a new directory `./tests/testthat/` to be populated with unit tests for the package functions. Although the tests can be run alone, generally, we made use of the `usethis::check()` command. This relies on the function `rcmdcheck::rcmdcheck()`, which not only runs the tests, but also carries out other checks for the package build. These include:
+<<<<<<< HEAD
+
+## Package Description
+=======
  ## Package Description
+>>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
 
 - Checking the package installs correctly,
 
@@ -59,6 +69,7 @@ df <- load_crimes_API(year = NULL)
 library(tidyverse)
 df<- read_csv("~/Desktop/project/data_API.csv", show_col_types = FALSE)
 df <- df %>% long_variables()
+source("chicri/R/utils.R")
 ```
 
 ## Variables to Keep
@@ -66,13 +77,15 @@ df <- df %>% long_variables()
 # Predicting Crimes Spatially and Temporally 
 For this task we implement a general additive model (GAM) using the `gam()` function from the `mgcv` package.
 
-## Weekly and Monthly Predictions
+
+## Weekly Predictions
 
 We use the `count_cases()` function to obtain weekly and monthly counts
 ```{r}
 library(tidyverse)
 library(lubridate)
-week_count <- df %>% count_cases(date_level = "week", date_end = as.Date("2019-12-31"))
+
+week_count <- df %>% count_cases(date_level = "week")
 
 ggplot(data =week_count) +
   geom_point(aes(x= `Week Start`, y = Count), color = "steelblue3", alpha = 0.5)
@@ -82,7 +95,8 @@ We can see that there is a drop in early 2020 (likely due to the COVID pandemic)
 ```{r, warning=FALSE}
 library(mgcv)
 
-week_train <- week_count %>% filter(Year <2018) 
+week_count <- week_count %>% filter(Year <= 2019, Year >= 2015)
+week_train <- week_count %>% filter(Year < 2018) 
 week_test <- week_count %>% filter(Year >= 2018)
 
 model_week <- gam(Count ~ s(Week, bs = "cc") + Year, data = week_train, family = "poisson")
@@ -92,16 +106,31 @@ week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data
 week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
 
 
-
 week_dat <- rbind(week_train, week_test)
 
 
 p <-ggplot(data = week_dat) +
-  geom_point(aes(x = `Week Start` , y = Count), color = "steelblue3", alpha =0.5) +
-  geom_line(aes(x = `Week Start`, y = Predicted, color = Data)) 
+  geom_point(aes(x = `Week Start` , y = Count), color = cbpal[3], alpha =0.5) +
+  geom_line(aes(x = `Week Start`, y = Predicted, color = Data), size = 1) +
+  scale_colour_manual(values= cbpal[c(7,6)])
 p
 ```
 
+## Weekly Predictions in Space
+
+We can now consider how the crime rates vary within Chicago using the community bounds. The shapefiles for these are available on the Chicago Data Portal, and the `chicri` package contains a function for loading them. 
+
+To include them in our `gam` model however, we need to use a Markov Random Field smooth. This creates an adjacency matrix for the community areas (based on whether any two areas share a vertex).
+```{r}
+community_map <- get_map()
+
+community_list <- setNames(as.list(community_map$the_geom), nm = community_map$area)
+
+xt <- list(polys = community_list)
+
+spatial_model <- gam(count ~ s(month, bs = "cc") + year + s(community_area, bs = "mrf", xt = list(polys = community_list)), data = spatial_counts, family = "poisson")
+
+```
 
 
 

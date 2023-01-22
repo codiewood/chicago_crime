@@ -57,7 +57,7 @@ crimes[c('Primary Type', 'District', 'Arrest', 'Domestic')] <- lapply(crimes[c('
 
 time.data <- crimes %>% mutate(Hour = as.factor(hour(crimes$Date))) %>% group_by(Hour) %>% dplyr::count(Arrest)
 
-crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
+crimes <- crimes %>% mutate(day = yday(crimes$Date), wkday = wday(crimes$Date), Hour = as.numeric(hour(crimes$Date) + minute(crimes$Date)/60)/24) %>% select(-c(Date,'X Coordinate','Y Coordinate'))
 
 crimes[c('Primary Type', 'District', 'Arrest', 'Domestic','wkday')] <- lapply(crimes[c('Primary Type', 'District', 'Arrest', 'Domestic','wkday')],as.factor)
 
@@ -123,7 +123,7 @@ We see that only $21.7%$ of the data has `Arrest = TRUE`. For our first SVM mode
 
 
 ```{r}
-set.seed(1) # Setting seed for reproducibility
+set.seed(30700) # Setting seed for reproducibility
 trainIndex <- createDataPartition(crimes$Arrest, p = .05, 
                                   list = TRUE)
 
@@ -148,11 +148,12 @@ seeds[[6]]<-sample.int(1000, 1)
 
 # we will reuse these seeds for different models
 
+#Define function to Cross-Validation in Parallel
+control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
+
 cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
-
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
 
 svm.model <- train(Arrest ~ .,
                    data = crimesTest,
@@ -177,7 +178,6 @@ down_sample %>% count(Arrest)
 We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample).
 
 ```{r}
-set.seed(1)
 trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
                                  list = TRUE)
 
@@ -190,8 +190,6 @@ crimesTestD %>% count(Arrest)
 cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
-
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
 
 svm.modelD <- train(Arrest ~ .,
                    data = crimesTestD,
@@ -228,8 +226,6 @@ cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
-
 svm.modelU <- train(Arrest ~ .,
                    data = crimesTestU,
                    trControl = control,
@@ -246,8 +242,6 @@ We can similarly train a logistic regression model using 5-fold cross validation
 cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
-
-control <- trainControl(method = 'cv',5, allowParallel = TRUE, seeds=seeds)
 
 log.model <- train(Arrest ~ .,
                data = crimes,
@@ -276,7 +270,7 @@ confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive =
 ```
 
 ```{r}
-blank <- data.frame(ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
+blank <- data.frame(Model = as.character(), ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
 up <- blank
 down <- blank
 logistic <- blank 
@@ -293,19 +287,34 @@ for (testrow in 1:10){
   l <- confusionMatrix(data = predict(log.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   r <- confusionMatrix(data = predict(svm.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   
-  up[testrow, ] <- c(u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
+  up[testrow, ] <- c('UpSVM',u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
                u[["byClass"]][["Specificity"]], u[["byClass"]][["Balanced Accuracy"]])
   
-  down[testrow, ] <- c(d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
+  down[testrow, ] <- c('DownSVM',d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
                d[["byClass"]][["Specificity"]], d[["byClass"]][["Balanced Accuracy"]])
   
-  logistic[testrow, ] <- c(l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
+  logistic[testrow, ] <- c('LogReg',l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
                l[["byClass"]][["Specificity"]], l[["byClass"]][["Balanced Accuracy"]])
   
-  repSVM[testrow, ] <- c(r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
+  repSVM[testrow, ] <- c('SVM',r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
                r[["byClass"]][["Specificity"]], r[["byClass"]][["Balanced Accuracy"]])
 }
 ```
+
+```{r}
+FullBinTest <- rbind(up,down,logistic,repSVM) %>%  mutate(Model = as.factor(Model), ACC = as.numeric(ACC), SENS = as.numeric(SENS), SPEC = as.numeric(SPEC), BALACC = as.numeric(BALACC))
+FullBinTest %>% group_by(Model) %>% summarise(across(everything(), mean))
+```
+```{r}
+ACCPlot <- ggplot(FullBinTest, aes(x = Model, y = ACC)) + geom_boxplot() + geom_hline(mapping = aes(yintercept = 0.7828), color = 'red')
+SENSPlot <- ggplot(FullBinTest, aes(x = Model, y = SENS)) + geom_boxplot()
+SPECPlot <- ggplot(FullBinTest, aes(x = Model, y = SPEC)) + geom_boxplot()
+BALACCPlot <- ggplot(FullBinTest, aes(x = Model, y = BALACC)) + geom_boxplot()
+
+plot_grid(ACCPlot,BALACCPlot , nrow=1, greedy = TRUE)
+plot_grid(SPECPlot, SENSPlot, nrow=1, greedy = TRUE)
+```
+
 
 ```{r}
 ggplot(mapping = aes(ACC,SENS, color = Model)) + 
@@ -335,13 +344,6 @@ ggplot(mapping = aes(ACC,BALACC, color = Model)) +
 ```
 
 
-```{r}
-ModelQual <- cbind(Model = as.character(), blank)
-ModelQual[1,] <- c('LogReg', logistic %>% summarise(across(everything(), mean)))
-ModelQual[2,] <- c('DownSVM', down %>% summarise(across(everything(), mean)))
-ModelQual[3,] <- c('UpSVM', up %>% summarise(across(everything(), mean)))
-ModelQual[4,] <- c('SVM', repSVM %>% summarise(across(everything(), mean)))
-ModelQual
-```
+
 
 

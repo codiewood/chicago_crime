@@ -18,7 +18,7 @@ NULL
 plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){
    p <- ggplot() +
     geom_sf(data = data, aes(fill = get(variable))) +
-    scale_fill_viridis_c(name = legend.title,option = "magma", trans = trans) +
+    scale_fill_viridis_c(name = legend.title,option = "plasma", trans = trans) +
     theme_void()
    return(p)
 }
@@ -37,7 +37,7 @@ plot_heat_map <- function(data, variable, legend.title = variable ,trans = "iden
 plot_heat_map_d <- function(data, variable, legend.title = variable){
   p <- ggplot() +
     geom_sf(data = data, aes(fill = as.factor(get(variable)))) +
-    scale_fill_viridis_d(name = legend.title,option = "magma") +
+    scale_fill_viridis_d(name = legend.title,option = "plasma") +
     theme_void()
   return(p)
 }
