@@ -69,6 +69,7 @@ df <- load_crimes_API(year = NULL)
 library(tidyverse)
 df<- read_csv("~/Desktop/project/data_API.csv", show_col_types = FALSE)
 df <- df %>% long_variables()
+source("chicri/R/utils.R")
 ```
 
 ## Variables to Keep
@@ -76,21 +77,15 @@ df <- df %>% long_variables()
 # Predicting Crimes Spatially and Temporally 
 For this task we implement a general additive model (GAM) using the `gam()` function from the `mgcv` package.
 
-<<<<<<< HEAD
+
 ## Weekly Predictions
-=======
-## Weekly and Monthly Predictions
->>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
 
 We use the `count_cases()` function to obtain weekly and monthly counts
 ```{r}
 library(tidyverse)
 library(lubridate)
-<<<<<<< HEAD
+
 week_count <- df %>% count_cases(date_level = "week")
-=======
-week_count <- df %>% count_cases(date_level = "week", date_end = as.Date("2019-12-31"))
->>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
 
 ggplot(data =week_count) +
   geom_point(aes(x= `Week Start`, y = Count), color = "steelblue3", alpha = 0.5)
@@ -100,13 +95,8 @@ We can see that there is a drop in early 2020 (likely due to the COVID pandemic)
 ```{r, warning=FALSE}
 library(mgcv)
 
-<<<<<<< HEAD
-
 week_count <- week_count %>% filter(Year <= 2019, Year >= 2015)
 week_train <- week_count %>% filter(Year < 2018) 
-=======
-week_train <- week_count %>% filter(Year <2018) 
->>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
 week_test <- week_count %>% filter(Year >= 2018)
 
 model_week <- gam(Count ~ s(Week, bs = "cc") + Year, data = week_train, family = "poisson")
@@ -116,27 +106,16 @@ week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data
 week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
 week_dat <- rbind(week_train, week_test)
 
 
 p <-ggplot(data = week_dat) +
-<<<<<<< HEAD
   geom_point(aes(x = `Week Start` , y = Count), color = cbpal[3], alpha =0.5) +
   geom_line(aes(x = `Week Start`, y = Predicted, color = Data), size = 1) +
   scale_colour_manual(values= cbpal[c(7,6)])
-=======
-  geom_point(aes(x = `Week Start` , y = Count), color = "steelblue3", alpha =0.5) +
-  geom_line(aes(x = `Week Start`, y = Predicted, color = Data)) 
->>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
 p
 ```
 
-
-<<<<<<< HEAD
 ## Weekly Predictions in Space
 
 We can now consider how the crime rates vary within Chicago using the community bounds. The shapefiles for these are available on the Chicago Data Portal, and the `chicri` package contains a function for loading them. 
@@ -152,8 +131,7 @@ xt <- list(polys = community_list)
 spatial_model <- gam(count ~ s(month, bs = "cc") + year + s(community_area, bs = "mrf", xt = list(polys = community_list)), data = spatial_counts, family = "poisson")
 
 ```
-=======
->>>>>>> b1aff628f8cf882462abc7d8bcbd8cb7c9b02515
+
 
 
 

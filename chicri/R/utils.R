@@ -213,33 +213,50 @@ count_cases <- function(df, date_start = NULL, date_end = NULL, location_level =
         dplyr::group_by(year, month) %>%
         dplyr::summarise(count = n())
     }
-  } else { #if we do include location
-
-    if (!(location_level == tolower(location_level))){
-      location_level <- long_to_short(location_level)
-    }
-    location_level <- rlang::enquo(location_level)
+  } else if (location_level == "community_area"){ #if we do include location
 
     if (date_level == "day"){
       count_dat <- df %>%
         dplyr::filter(date > date_start, date < date_end) %>%
         dplyr::mutate(year = year(date), month = month(date), day = day(date)) %>%
-        dplyr::group_by(year, month,day, !!eval(location_level)) %>%
+        dplyr::group_by(year, month,day, community_area) %>%
         dplyr::summarise(count = n())
     } else if (date_level == "week") {
       count_dat <- df %>%
         dplyr::filter(date > date_start, date < date_end) %>%
         dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
-        dplyr::group_by(week_start, !!eval(location_level)) %>%
+        dplyr::group_by(week_start, community_area) %>%
         dplyr::summarise(count = n()) %>%
         dplyr::mutate(year = year(week_start), week = week(week_start))
     } else if (date_level == "month"){
       count_dat <- df %>%
         dplyr::filter(date > date_start, date < date_end) %>%
         dplyr::mutate(year = year(date), month = month(date)) %>%
-        dplyr::group_by(year, month, !!eval(location_level)) %>%
+        dplyr::group_by(year, month, community_area) %>%
         dplyr::summarise(count = n())
     }
+  } else if (location_level == "district") {
+    if (date_level == "day"){
+      count_dat <- df %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(year = year(date), month = month(date), day = day(date)) %>%
+        dplyr::group_by(year, month,day, district) %>%
+        dplyr::summarise(count = n())
+    } else if (date_level == "week") {
+      count_dat <- df %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(week_start = floor_date(date, unit = "week", week_start = 1)) %>%
+        dplyr::group_by(week_start, district) %>%
+        dplyr::summarise(count = n()) %>%
+        dplyr::mutate(year = year(week_start), week = week(week_start))
+    } else if (date_level == "month"){
+      count_dat <- df %>%
+        dplyr::filter(date > date_start, date < date_end) %>%
+        dplyr::mutate(year = year(date), month = month(date)) %>%
+        dplyr::group_by(year, month, district) %>%
+        dplyr::summarise(count = n())
+    }
+
   }
   count_dat <- long_variables(count_dat)
   return(count_dat)
