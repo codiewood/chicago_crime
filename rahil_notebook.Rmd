@@ -270,7 +270,7 @@ confusionMatrix(reference = crimes$Arrest, data = predict(log.model), positive =
 ```
 
 ```{r}
-blank <- data.frame(ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
+blank <- data.frame(Model = as.character(), ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
 up <- blank
 down <- blank
 logistic <- blank 
@@ -287,19 +287,34 @@ for (testrow in 1:10){
   l <- confusionMatrix(data = predict(log.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   r <- confusionMatrix(data = predict(svm.model, newdata = sampTest), reference = sampTest$Arrest, positive = 'TRUE')
   
-  up[testrow, ] <- c(u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
+  up[testrow, ] <- c('UpSVM',u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
                u[["byClass"]][["Specificity"]], u[["byClass"]][["Balanced Accuracy"]])
   
-  down[testrow, ] <- c(d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
+  down[testrow, ] <- c('DownSVM',d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
                d[["byClass"]][["Specificity"]], d[["byClass"]][["Balanced Accuracy"]])
   
-  logistic[testrow, ] <- c(l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
+  logistic[testrow, ] <- c('LogReg',l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
                l[["byClass"]][["Specificity"]], l[["byClass"]][["Balanced Accuracy"]])
   
-  repSVM[testrow, ] <- c(r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
+  repSVM[testrow, ] <- c('SVM',r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
                r[["byClass"]][["Specificity"]], r[["byClass"]][["Balanced Accuracy"]])
 }
 ```
+
+```{r}
+FullBinTest <- rbind(up,down,logistic,repSVM) %>%  mutate(Model = as.factor(Model), ACC = as.numeric(ACC), SENS = as.numeric(SENS), SPEC = as.numeric(SPEC), BALACC = as.numeric(BALACC))
+FullBinTest %>% group_by(Model) %>% summarise(across(everything(), mean))
+```
+```{r}
+ACCPlot <- ggplot(FullBinTest, aes(x = Model, y = ACC)) + geom_boxplot() + geom_hline(mapping = aes(yintercept = 0.7828), color = 'red')
+SENSPlot <- ggplot(FullBinTest, aes(x = Model, y = SENS)) + geom_boxplot()
+SPECPlot <- ggplot(FullBinTest, aes(x = Model, y = SPEC)) + geom_boxplot()
+BALACCPlot <- ggplot(FullBinTest, aes(x = Model, y = BALACC)) + geom_boxplot()
+
+plot_grid(ACCPlot,BALACCPlot , nrow=1, greedy = TRUE)
+plot_grid(SPECPlot, SENSPlot, nrow=1, greedy = TRUE)
+```
+
 
 ```{r}
 ggplot(mapping = aes(ACC,SENS, color = Model)) + 
@@ -329,13 +344,6 @@ ggplot(mapping = aes(ACC,BALACC, color = Model)) +
 ```
 
 
-```{r}
-ModelQual <- cbind(Model = as.character(), blank)
-ModelQual[1,] <- c('LogReg', logistic %>% summarise(across(everything(), mean)))
-ModelQual[2,] <- c('DownSVM', down %>% summarise(across(everything(), mean)))
-ModelQual[3,] <- c('UpSVM', up %>% summarise(across(everything(), mean)))
-ModelQual[4,] <- c('SVM', repSVM %>% summarise(across(everything(), mean)))
-ModelQual
-```
+
 
 
