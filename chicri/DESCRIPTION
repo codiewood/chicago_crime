@@ -15,13 +15,13 @@ Depends:
     ggplot2,
     lubridate,
     magrittr,
+    readr,
     ROCit,
     sf
 Imports: 
     kableExtra,
     knitr,
     nnet,
-    readr,
     rlang,
     RSocrata,
     stats,
