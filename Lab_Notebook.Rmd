@@ -387,7 +387,7 @@ fit_plot <- plot_heat_map(plot_dat, "Fitted", trans = "reverse")
 
 res_plot <- plot_heat_map(plot_dat, "Residuals")
 
-grid.arrange(true_plot, fit_plot, res_plot)
+gridExtra::grid.arrange(true_plot, fit_plot, res_plot)
 
 ```
 
