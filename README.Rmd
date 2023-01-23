@@ -16,6 +16,7 @@ knitr::opts_chunk$set(
 # chicri
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/codiewood/chicago_crime/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/codiewood/chicago_crime/actions/workflows/check-standard.yaml)
 <!-- badges: end -->
 
 The goal of chicri is to provide functions for the analysis of the [Chicago crime data set](https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2). Namely, the functions are part of the SC1/SM1 group project for the Compass PhD, and aid in performing regressions and classifications.
