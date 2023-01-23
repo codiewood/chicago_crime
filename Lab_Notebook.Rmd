@@ -73,7 +73,7 @@ df %>% head()
 
 ```{r, include = FALSE}
 
-df <- read_csv("~/Desktop/project/data_raw.csv", show_col_types = FALSE) %>%
+df <- read_csv("C:/Users/Rahil/OneDrive/Documents/ProjectSC1/data_raw.csv", show_col_types = FALSE) %>%
   mutate(Date = parse_datetime(Date, format = "%m/%d/%Y %I:%M:%S %p"))
 df <- df %>%
   mutate_if(is.character, as.factor)
