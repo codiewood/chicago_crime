@@ -34,8 +34,7 @@ process_data <- function(data){
     mutate(`Community Area` = as.factor(`Community Area`),
            Beat = as.factor(Beat),
            Ward = as.factor(Ward),
-           District = as.factor(District)) %>%
-    tidyr::drop_na()
+           District = as.factor(District))
   data$`Primary Type` <- forcats::fct_collapse(data$`Primary Type`, "CRIMINAL SEXUAL ASSAULT" = c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT"))
   return(data)
 }
