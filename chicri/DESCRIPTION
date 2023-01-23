@@ -17,7 +17,8 @@ Depends:
     magrittr,
     readr,
     ROCit,
-    sf
+    sf,
+    tidyr
 Imports: 
     kableExtra,
     knitr,
@@ -25,8 +26,7 @@ Imports:
     rlang,
     RSocrata,
     stats,
-    stringr,
-    tidyr
+    stringr
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

@@ -122,6 +122,9 @@ load_crimes_API <- function(year = "2019"){
   if(is.null(year)){
     data_API <- RSocrata::read.socrata(base_url)
   }
+  else if(as.integer(year) > 2023 | as.integer(year) < 2001){
+    stop("Please enter valid year (between 2001 and 2023)")
+  }
   else {
     data_API <- RSocrata::read.socrata(paste0(base_url, "?year=", year))
   }
@@ -178,11 +181,11 @@ othering <- function(factor_vec, threshold, print_summary = FALSE){
 #'
 #' @return knitr kable with latex format
 #' @export
-report_table <- function(data,align){
+report_table <- function(data,align){ # nocov start
   tab <- knitr::kable(data,
                       format="latex",
                       digits = 4,
                       align = align) %>%
     kableExtra::kable_styling(latex_options = "hold_position")
   return(tab)
-}
+} # nocov end

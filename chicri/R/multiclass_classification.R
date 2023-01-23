@@ -94,7 +94,7 @@ mnlr_cv_indexed <- function(X, y, index, return_model = FALSE){
 #'
 #' @return List containing two elements: a list of length equal to that of `metrics` + 3, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds, and a list of length equal to `n_reps`, containing the metrics for each of the `k` folds.
 #' @export
-mnlr_kfold_cv.list <- function(X, y, k, n_reps = 5, metrics) {
+mnlr_kfold_cv.list <- function(X, y, k, n_reps = 5, metrics) { # nocov start
   n <- nrow(X)
   m <- length(metrics)
   metric_list <- list()
@@ -159,7 +159,7 @@ mnlr_kfold_cv.list <- function(X, y, k, n_reps = 5, metrics) {
   }
   names(mean_metrics) <- c("Overall Accuracy", "NIR", "P-value (Acc > NIR)",metrics)
   return(list(mean_metrics = mean_metrics, all_metrics = metric_list))
-}
+} # nocov end
 
 #' K-fold cross-validation metrics for multinomial regression, in data frame format.
 #'
@@ -244,7 +244,7 @@ mean_repeat_metrics <- function(results,type){
   return(repeat_means)
 }
 
-plot_factors <-  function(data, column, threshold = NULL){
+plot_factors <-  function(data, column, threshold = NULL){ # nocov start
   p <- ggplot(data) +
     geom_bar(aes(y = get(column)), colour = "#56B4E9", fill = "#56B4E9", alpha = 0.7) +
     labs(x = "Count", y = column)
@@ -254,4 +254,4 @@ plot_factors <-  function(data, column, threshold = NULL){
   }
 
   return(p)
-}
+} # nocov end

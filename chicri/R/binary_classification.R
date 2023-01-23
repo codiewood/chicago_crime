@@ -25,7 +25,7 @@ ggplotROC <- function(fitval, y){ # nocov start
 #' @param y An array of equal length of score, containing the class of the observations.
 #'
 #' @return The AUC of an ROC graph
-AUC <- function(fitval, y){
+AUC <- function(fitval, y){ # nocov start
   roc_mod <- ROCit::rocit(score = fitval , class = y)
   return(roc_mod[['AUC']])
 } # nocov end

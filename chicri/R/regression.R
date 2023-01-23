@@ -12,7 +12,7 @@ NULL
 #'
 #' @return The requested map as a shapefile consisting of geometries and the relevant area coding
 #' @export
-get_map <- function(map = "community_area"){
+get_map <- function(map = "community_area"){ # nocov start
   if (map == "community_area"){
     community_map <- RSocrata::read.socrata("https://data.cityofchicago.org/resource/igwz-8jzy.csv")
     community_map <- community_map %>%
@@ -30,13 +30,13 @@ get_map <- function(map = "community_area"){
       dplyr::arrange(District)
     return(district_map)
   }
-}
+} # nocov end
 
 #' Load socioecononic indicators data from the Chicago database
 #'
 #' @return The socioeconomic data frame from the Chicago databases
 #' @export
-get_indicators <- function(){
+get_indicators <- function(){ # nocov start
   socio_ind <- RSocrata::read.socrata("https://data.cityofchicago.org/resource/i9hv-en6g.csv")
   socio_ind <- socio_ind %>%
     dplyr::select(-c(community_area_name)) %>%
@@ -46,7 +46,7 @@ get_indicators <- function(){
     long_variables() %>%
     tidyr::drop_na()
   return(socio_ind)
-}
+} # nocov end
 
 #' Count the number of crimes in a given time frame and location level
 #'
