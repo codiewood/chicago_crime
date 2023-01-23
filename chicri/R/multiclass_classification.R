@@ -42,8 +42,7 @@ regroup_locations <- function(data, threshold){
   data$`Location Description` <- forcats::fct_collapse(data$`Location Description`,
                                               "SCHOOL" = school,
                                               "UNIVERSITY" = uni,
-                                              "AIRPORT" = airport,
-                                              "OTHER" = c("OTHER", "OTHER (SPECIFY)"))
+                                              "AIRPORT" = airport)
   data$`Location Description` <- othering(data$`Location Description`, threshold)
   return(data)
 }
@@ -244,14 +243,3 @@ mean_repeat_metrics <- function(results,type){
   return(repeat_means)
 }
 
-plot_factors <-  function(data, column, threshold = NULL){ # nocov start
-  p <- ggplot(data) +
-    geom_bar(aes(y = get(column)), colour = "#56B4E9", fill = "#56B4E9", alpha = 0.7) +
-    labs(x = "Count", y = column)
-
-  if (!is.null(threshold)){
-    p <- p + geom_vline(xintercept=threshold, colour="red")
-  }
-
-  return(p)
-} # nocov end

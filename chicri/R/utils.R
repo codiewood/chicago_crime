@@ -189,3 +189,23 @@ report_table <- function(data,align){ # nocov start
     kableExtra::kable_styling(latex_options = "hold_position")
   return(tab)
 } # nocov end
+
+#' Code to produce bar plots of factor variables
+#'
+#' @param data Data to be plotted
+#' @param column Variable to be plotted
+#' @param threshold Threshold value to be shown on plot. If NULL, no value shown. Default is NULL.
+#'
+#' @return Bar plot
+#' @export
+plot_factors <-  function(data, column, threshold = NULL){ # nocov start
+  p <- ggplot(data) +
+    geom_bar(aes(y = get(column)), colour = "#56B4E9", fill = "#56B4E9", alpha = 0.7) +
+    labs(x = "Count", y = column)
+
+  if (!is.null(threshold)){
+    p <- p + geom_vline(xintercept=threshold, colour="red")
+  }
+
+  return(p)
+} # nocov end
