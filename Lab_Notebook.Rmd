@@ -12,7 +12,11 @@ knitr::opts_chunk$set(echo = TRUE,
                       dev = 'pdf',
                       pdf.options(encoding = "ISOLatin9.enc"),
                       message = FALSE,
-                      warning = FALSE)
+                      warning = FALSE,
+                      tidy.opts = list(width.cutoff=50), tidy=TRUE,
+                      fig.pos ="H", out.width = '60%',
+                      fig.align = 'center'
+                      )
 ```
 
 
@@ -69,7 +73,7 @@ df%>% head()
 
 ```{r, include = FALSE}
 
-df <- read_csv("~/Desktop/project/data_raw.csv", show_col_types = FALSE) %>%
+df <- read_csv("C:/Users/Rahil/OneDrive/Documents/ProjectSC1/data_raw.csv", show_col_types = FALSE) %>%
   mutate(Date = parse_datetime(Date, format = "%m/%d/%Y %I:%M:%S %p"))
 df <- df %>%
   mutate_if(is.character, as.factor)
@@ -243,7 +247,7 @@ district_markers <- district_map %>%
   as_tibble() %>%
   dplyr::mutate(district_labels = district_labels)
 
-# Plot with district labels and coloured area: labels for 31 are a bit vom
+# Plot with district labels and coloured area
 area_plot_markers <- area_plot +
   geom_sf_label(data = district_map, aes(label = dist_num)) +
   theme_void()
@@ -254,7 +258,7 @@ area_plot_markers
 
 ```{r}
 # Plot showing number of crimes in each district area
-plot_factors(df, "District Area")
+plot_factors(data = df_2019, "District Area")
 ```
 
 
@@ -450,7 +454,9 @@ While including more information might improve our models, during our EDA we fou
 crimes <- df_2019 %>%
   mutate(day = yday(Date), 
          wkday = wday(Date), 
-         Hour = as.numeric(hour(Date) + minute(Date)/60)/24)
+         Hour = as.numeric(hour(Date) + minute(Date)/60)/24) %>% 
+  filter(!(District == "031")) %>%
+  mutate(District = fct_drop(District))
 
 time.data <- crimes %>% 
   mutate(Hour = as.factor(hour(crimes$Date))) %>% 
@@ -458,9 +464,7 @@ time.data <- crimes %>%
   dplyr::count(Arrest)
 
 crimes <- crimes %>%
-  mutate(`Primary Type` = othering(`Primary Type`, 1000)) %>%
-  select(-c(`Location Description`)) %>%
-  mutate(day = as.factor(day), wkday = as.factor(wkday)) %>%
+  mutate(wkday = as.factor(wkday)) %>%
   droplevels() %>% 
   drop_na()
 
@@ -482,7 +486,7 @@ arrest_rates <- crimes %>%
                    `Arrest Prob` = mean(Arrest))
 
 crimes <- crimes %>%
-  select(- c(Date, Year, Location, `Community Area`, Location))
+  select(- c(Date,  'X Coordinate','Y Coordinate','District Area', 'Location Description'))
 
 plot1 <- ggplot(arrest_rates) + 
   geom_point(aes(x =Hour, y = `Arrest Prob`)) + 
@@ -522,7 +526,7 @@ for(i in 1:6) seeds[[i]] <- sample.int(n=1000, 3)
 #Define Cross Validation Function
 control <- trainControl(method = 'cv', number = 5, allowParallel = TRUE, seeds=seeds)
 
-cl <- makePSOCKcluster(2)
+cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
@@ -563,6 +567,8 @@ crimesTest <- crimes[trainIndex$Resample,]
 Just like with the Logistic Regression Classifier we use the `train` function from `caret` using our previously defined train function - which has the exact same implementation for the SVMs we fit. The `svmRadial` method uses `kernlab::sigest` to determine a good predictor for $\sigma$. It will then test multiple values for Cost and will choose the one which maximizes accuracy. The `train` function will work in this manner for the other 2 models we train as well.
 
 ```{r}
+cl <- makePSOCKcluster(detectCores() - 1)
+
 registerDoParallel(cl)
 
 #Fitting SVM Model with a Proportional Sample
@@ -591,6 +597,9 @@ We see that the sample involves all the TRUE data points and gives a random samp
 ```{r}
 trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
                                  list = TRUE)
+crimesTestD <- down_sample[trainIndexD$Resample, ]  %>% select(-Class)
+
+cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
@@ -608,12 +617,16 @@ There is another method of sampling in a similar vein to down sampling, known as
 
 ```{r}
 up_sample <- upSample(x = crimes, y = crimes$Arrest)
+up_sample %>% count(Arrest)
 ```
 
 ```{r}
-set.seed(1)
 trainIndexU <- createDataPartition(up_sample$Arrest, p = nrow(crimesTest)/nrow(up_sample), 
                                  list = TRUE)
+
+crimesTestU <- up_sample[trainIndexU$Resample, ] %>% select(-Class)
+
+cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
@@ -625,7 +638,6 @@ svm.modelU <- train(Arrest ~ .,
                    family = binomial())
 
 stopCluster(cl)
-svm.modelU$results[c('Accuracy', 'Kappa')]
 ```
 
 ## Model Performance
@@ -638,8 +650,6 @@ $$Specificity = Pr(\hat{Y} = 0| Y = 0) = Pr(\text{True Negative})$$
 $$\text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2}$$
 
 An interesting benchmark for the usefulness of the model is the No-Information Rate which is the accuracy if we just guess for each data point is the largest proportion class. For the crimes data set that is $0.7828$, however this is not some foolproof benchmark, for example if our goal is to predict to lowest proportion class consistently. 
-
-
 
 ```{r}
 blank <- data.frame(Model = as.character(), ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
@@ -655,13 +665,13 @@ for (testrow in 1:10){
   
   sampTest <- crimes[sampIndex$Resample,]
   
-  u <- confusionMatrix(data = predict(svm.modelU, newdata = sampTest),
+  u <- confusionMatrix(data = predict(object = svm.modelU, newdata = sampTest),
                        reference = sampTest$Arrest, positive = 'TRUE')
-  d <- confusionMatrix(data = predict(svm.modelD, newdata = sampTest),
+  d <- confusionMatrix(data = predict(object = svm.modelD, newdata = sampTest),
                        reference = sampTest$Arrest, positive = 'TRUE')
-  l <- confusionMatrix(data = predict(log.model, newdata = sampTest),
+  l <- confusionMatrix(data = predict(object = log.model, newdata = sampTest),
                        reference = sampTest$Arrest, positive = 'TRUE')
-  r <- confusionMatrix(data = predict(svm.model, newdata = sampTest),
+  r <- confusionMatrix(data = predict(object =  svm.model, newdata = sampTest),
                        reference = sampTest$Arrest, positive = 'TRUE')
   
   up[testrow, ] <- c('UpSVM',u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
