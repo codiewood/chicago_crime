@@ -1,15 +1,18 @@
 ---
 title: "project"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document:
+   keep_tex: yes
 date: "2023-01-09"
 ---
-```{r}
-rm(list = ls())
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      dev = 'pdf',
+                      pdf.options(encoding = "ISOLatin9.enc"))
 ```
 
 ```{r message=FALSE, warning=FALSE}
+rm(list = ls())
 library(plyr)
 library(tidyr)
 detach(package:plyr) 

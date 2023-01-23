@@ -15,7 +15,8 @@ Depends:
     ggplot2,
     lubridate,
     magrittr,
-    ROCit
+    ROCit,
+    sf
 Imports: 
     kableExtra,
     knitr,
@@ -23,7 +24,6 @@ Imports:
     readr,
     rlang,
     RSocrata,
-    sf,
     stats,
     stringr,
     tidyr
