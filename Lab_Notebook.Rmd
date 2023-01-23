@@ -10,7 +10,9 @@ date: "January 2023"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       dev = 'pdf',
-                      pdf.options(encoding = "ISOLatin9.enc"))
+                      pdf.options(encoding = "ISOLatin9.enc"),
+                      message = FALSE,
+                      warning = FALSE)
 ```
 
 
@@ -20,10 +22,10 @@ devtools::install_github("codiewood/chicago_crime/chicri")
 ```
 
 ```{r, message = FALSE}
-library(tidyverse)
+library(chicri)
 theme_set(theme_minimal())
 cbpal <- c("#000000", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-library(chicri)
+
 ```
 ## Computational Techniques
 ### Package Building
@@ -41,8 +43,6 @@ The Chicago Crime dataset stored online is regularly updated on a daily basis. I
 
 ## Testing, GitHub and Continuous Integration
 For tests, we used the `testthat` package. This creates a new directory `./tests/testthat/` to be populated with unit tests for the package functions. Although the tests can be run alone, generally, we made use of the `usethis::check()` command. This relies on the function `rcmdcheck::rcmdcheck()`, which not only runs the tests, but also carries out other checks for the package build. These include:
-
-## Package Description
 
 
 - Checking the package installs correctly,
@@ -62,18 +62,196 @@ We used parallel programming, which allows code to be run across multiple cores,
 # Exploratory Data Analysis
 Our data can be loaded using the `load_crimes_API()` function from the `chicri` package:
 ```{r, eval=FALSE}
-df <- load_crimes_API(year = NULL) %>% process_data()
+df <- load_crimes_API(year = NULL) %>% 
+  process_data()
+
+df%>% head()
 ```
 
 ```{r, include = FALSE}
-library(tidyverse)
-df<- read_csv("~/Desktop/project/data_API.csv", show_col_types = FALSE)
-df <- df %>% long_variables()
+
+df <- read_csv("~/Desktop/project/data_raw.csv", show_col_types = FALSE) %>%
+  mutate(Date = parse_datetime(Date, format = "%m/%d/%Y %I:%M:%S %p"))
+df <- df %>%
+  mutate_if(is.character, as.factor)
+df%>% head()
 ```
 
-## Variables to Keep
+
+Looking at the columns, we can see there are many variables which contain similar information to each other, so we ignore the following columns in our analysis:
+
+- `ID`, `Case Number`, `Updated On` : We assume these are for administrative purposes and are non-informative for predicting crimes and arrests.
+- `Block`, `Beat`, `Ward`, `X Coordinate`, `Y Coordinate`, `Latitude`, `Longitude` : For the spatial elements of our analysis, we only use `Community Area` and `District` to reduce redundancy and computational time.
+- `IUCR`, `FBI Code`, `Description` : These have more levels than `Primary Type` while containing similar information, and thus we use `Primary Type` instead.
+
+We also drop any missing data.
+
+```{r}
+df <- df %>%
+  select(-c(ID, `Case Number`, `Updated On`, 
+            `Block`, `Beat`, `Ward`, `X Coordinate`, `Y Coordinate`, `Latitude`, `Longitude`,
+            `IUCR`, `FBI Code`, `Description`)) %>%
+  drop_na()
+```
 
 
+We also consider some categorical variables which have many levels, with the aim of combining some of the levels for the sake of computational time and readability.
+
+The only time which use the following variables is analysis on data from 2019, and so we combine factors based on the counts from this year only.
+```{r}
+df_2019 <- df %>% 
+  filter(year(Date) == 2019)
+```
+
+## Primary Type
+
+We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category. The least frequent category is SEX OFFENSE, which has 1310 occurences.
+
+The following plots show the distribution of values among the data before and after the combination of factors. 
+
+
+```{r}
+
+df_2019$`Primary Type` <- df_2019$`Primary Type` %>%
+  fct_infreq() %>%
+  fct_rev()
+
+ # set threshold for othering
+thr <- 1000
+
+plot_factors(df_2019, "Primary Type", threshold = thr)
+
+```
+
+```{r}
+df_2019$`Primary Type` <- df_2019$`Primary Type` %>%
+  fct_recode("OTHER" = "OTHER OFFENSE") %>%
+  othering(thr,print_summary = T) %>%
+  fct_infreq() %>%
+  fct_rev()
+
+length(levels(df_2019$`Primary Type`))
+
+plot_factors(df_2019, "Primary Type")
+
+```
+
+## Location Description
+We also wished to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, as well as merging some groups which have similar categories: for example, all descriptions containing the word "airport" were merged into one category. 
+
+```{r}
+# Reordering factor levels (for plots and analysis purposes)
+df_2019$`Location Description` <- df_2019$`Location Description` %>%
+  fct_infreq() %>%
+  fct_rev()
+
+plot_factors(df_2019, "Location Description", thr)
+```
+
+```{r}
+df_2019 <- regroup_locations(df_2019,thr)
+
+df_2019$`Location Description` <- df_2019$`Location Description` %>%
+  fct_infreq() %>% 
+  fct_rev()
+
+plot_factors(df_2019, "Location Description")
+```
+Even after this removal of categories, after some exploration we found that inclusion in the models led to an inability for the model to converge, and so we remove this from our final analysis.
+
+### District
+The following plots show a map of the district bounds and the distribution of crimes among districts
+
+```{r}
+
+district_map <- get_map(map = "district")
+
+plot_heat_map_d(district_map,"District")
+```
+
+```{r}
+df$District <- df$District %>%
+  fct_infreq() %>%
+  fct_rev()
+
+plot_factors(df, "District")
+```
+
+In order to simplify analysis, we exclude the crimes from District 031, 16 and 021, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
+
+
+
+
+```{r}
+# Removing district 31 from analysis
+
+df <- df %>%
+  filter(!(District == "031"), !(District == "16"), !(District == "021")) %>%
+  mutate(District = fct_drop(District))
+```
+
+
+In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. ^[Source: http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts]
+
+
+```{r}
+# Adding area groupings
+area1 <- c("002","003","008","009","007")
+area2 <- c("004","005","006","022")
+area3 <- c("001","012","018","019","020","024")
+area4 <- c("010","011","015")
+area5 <- c("014","016", "017","025")
+
+df <- df %>%
+  mutate(`District Area` = fct_collapse(District,
+                                        "AREA 1" = area1,
+                                        "AREA 2" = area2, 
+                                        "AREA 3" = area3, 
+                                        "AREA 4" = area4, 
+                                        "AREA 5" = area5),
+         `District Area` = fct_relevel(`District Area`, sort))
+  
+```
+
+
+```{r}
+district_map$Area <- fct_collapse(as.factor(district_map$District),
+                                  "AREA 1" = as.character(as.integer(area1)),
+                                  "AREA 2" = as.character(as.integer(area2)),
+                                  "AREA 3" = as.character(as.integer(area3)),
+                                  "AREA 4"= as.character(as.integer(area4)),
+                                  "AREA 5" = as.character(as.integer(area5))) %>%
+  fct_relevel(sort) %>%
+  fct_relevel("31", after = Inf)
+
+#Plot for just area
+area_plot <- plot_heat_map_d(district_map,"Area")
+area_plot
+```
+
+```{r}
+# Get district labels and locations
+district_labels <- sort(as.integer(district_map$District))
+district_markers <- district_map %>%
+  dplyr::arrange(as.integer(District)) %>%
+  sf::st_centroid() %>%
+  sf::st_coordinates() %>%
+  as_tibble() %>%
+  dplyr::mutate(district_labels = district_labels)
+
+# Plot with district labels and coloured area: labels for 31 are a bit vom
+area_plot_markers <- area_plot +
+  geom_sf_label(data = district_map, aes(label = dist_num)) +
+  theme_void()
+
+area_plot_markers
+```
+
+
+```{r}
+# Plot showing number of crimes in each district area
+plot_factors(df, "District Area")
+```
 
 
 # Predicting Crimes Spatially and Temporally 
@@ -84,8 +262,6 @@ For this task we implement a general additive model (GAM) using the `gam()` func
 
 We use the `count_cases()` function to obtain weekly and monthly counts
 ```{r}
-library(tidyverse)
-library(lubridate)
 
 week_count <- df %>% count_cases(date_level = "week")
 
@@ -237,32 +413,28 @@ We choose \texttt{Primary Type} over \texttt{FBI Code} to determine the type of 
 
 For temporal data we include \texttt{Week Day} as a factor variable, encoding date using \texttt{Day} (1-365) and \texttt{Time} as a numeric character between 0-1.
 
-In order to include spatial information, we consider the \texttt{District} variable. We observe that all districts experience reasonable numbers of crimes to be incorporated into analysis, with the exception of District 031. 
+In order to include spatial information, we consider the \texttt{District} variable. 
 
 While including more information might improve our models, during our EDA we found the inclusion of highly correlated variables to improve the model insignificantly while drastically increasing computational time.
 
 ```{r}
-crimes <- df %>% 
-  filter(year(Date) == 2019, !(District == 031)) %>%
-  select(-c(`Community Area`, `Latitude`, `Longitude`)) %>%
-  mutate_if(is.character, as.factor) %>%
+crimes <- df_2019 %>%
   mutate(day = yday(Date), 
          wkday = wday(Date), 
          Hour = as.numeric(hour(Date) + minute(Date)/60)/24)
-
-crimes <- crimes %>%
-  mutate(`Primary Type` = othering(`Primary Type`, 1000),
-         `Primary Type` = fct_collapse(`Primary Type`, "OTHER" = c("OTHER", "OTHER OFFENSE"))) %>%
-  mutate() %>%
-  droplevels() %>% 
-  drop_na()
-
-
 
 time.data <- crimes %>% 
   mutate(Hour = as.factor(hour(crimes$Date))) %>% 
   group_by(Hour) %>% 
   dplyr::count(Arrest)
+
+crimes <- crimes %>%
+  mutate(`Primary Type` = othering(`Primary Type`, 1000)) %>%
+  select(-c(`Location Description`)) %>%
+  mutate(day = as.factor(day), wkday = as.factor(wkday)) %>%
+  droplevels() %>% 
+  drop_na()
+
 ```
 
 Here we plot the proportion of crimes that resulted in arrest for depending on the hour of the day. We can see that the likelihood of an Arrest Resulting from a crime might have dependence on the hour the crime was committed this could be due to the nature of the crimes). However, this seems to indicates that it would be worthwhile to include time as a predictor in our binary classification model.
@@ -273,12 +445,15 @@ Here we plot the proportion of crimes that resulted in arrest for depending on t
 library(ggplot2)
 library(cowplot)
 
-arrest_rates <- crimes%>% 
+arrest_rates <- crimes %>% 
   mutate(Hour = hour(Date)) %>%
   dplyr::group_by(Hour) %>%
   dplyr::summarise(`Total Crimes` = n(), 
                    Arrests = sum(Arrest), 
                    `Arrest Prob` = mean(Arrest))
+
+crimes <- crimes %>%
+  select(- Date)
 
 plot1 <- ggplot(arrest_rates) + 
   geom_point(aes(x =Hour, y = `Arrest Prob`)) + 
@@ -318,7 +493,7 @@ for(i in 1:6) seeds[[i]] <- sample.int(n=1000, 3)
 #Define Cross Validation Function
 control <- trainControl(method = 'cv', number = 5, allowParallel = TRUE, seeds=seeds)
 
-cl <- makePSOCKcluster(detectCores() - 2)
+cl <- makePSOCKcluster(2)
 
 registerDoParallel(cl)
 
@@ -351,14 +526,14 @@ It is clear than in our data there is a significant imbalance in the class propo
 ```{r}
 trainIndex <- createDataPartition(crimes$Arrest, p = .05, 
                                   list = TRUE)
+
+crimesTest <- crimes[trainIndex$Resample,]
 ```
 
 
 Just like with the Logistic Regression Classifier we use the `train` function from `caret` using our previously defined train function - which has the exact same implementation for the SVMs we fit. The `svmRadial` method uses `kernlab::sigest` to determine a good predictor for $\sigma$. It will then test multiple values for Cost and will choose the one which maximizes accuracy. The `train` function will work in this manner for the other 2 models we train as well.
 
 ```{r}
-cl <- makePSOCKcluster(detectCores() - 2)
-
 registerDoParallel(cl)
 
 #Fitting SVM Model with a Proportional Sample
@@ -388,8 +563,6 @@ We see that the sample involves all the TRUE data points and gives a random samp
 trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
                                  list = TRUE)
 
-cl <- makePSOCKcluster(detectCores() - 2)
-
 registerDoParallel(cl)
 
 #Training a SVM using down sampling
@@ -412,8 +585,6 @@ up_sample <- upSample(x = crimes, y = crimes$Arrest)
 set.seed(1)
 trainIndexU <- createDataPartition(up_sample$Arrest, p = nrow(crimesTest)/nrow(up_sample), 
                                  list = TRUE)
-
-cl <- makePSOCKcluster(detectCores() - 1)
 
 registerDoParallel(cl)
 
@@ -458,167 +629,19 @@ The better balanced accuracy of the up and down sampled models, shows that accur
 
 In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occurred, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
 
-Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
+We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
 
-## Feature Selection
 
 Due to the extremely large size of the full data set, it is computationally intensive to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019:
 
 ```{r}
-dat <- df %>% 
-  filter(year(Date) == 2019) %>%
-  select(-c(Latitude, Longitude)) %>%
-  drop_na()
-```
-
-As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task.
-
-### Primary Type
-
-We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category. The least frequent category is SEX OFFENSE, which has 1310 occurences.
-
-The following plots show the distribution of values among the data before and after the combination of factors. 
-
-
-```{r}
-
-dat$`Primary Type` <- dat$`Primary Type` %>%
-  fct_infreq() %>%
-  fct_rev()
-
-thr <- 1000 # set threshold for othering
-
-plot_factors(dat, "Primary Type", threshold = thr)
-
-```
-
-```{r}
-dat$`Primary Type` <- dat$`Primary Type` %>%
-  fct_recode("OTHER" = "OTHER OFFENSE") %>%
-  othering(thr,print_summary = T) %>%
-  fct_infreq() %>%
-  fct_rev()
-
-plot_factors(dat, "Primary Type")
-
-```
-
-### Location Description
-We also wished to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, as well as merging some groups which have similar categories: for example, all descriptions containing the word "airport" were merged into one category. 
-
-```{r}
-# Reordering factor levels (for plots and analysis purposes)
-dat$`Location Description` <- dat$`Location Description` %>%
-  fct_infreq() %>%
-  fct_rev()
-
-plot_factors(dat, "Location Description", thr)
-```
-
-```{r}
-dat <- regroup_locations(dat,thr)
-
-dat$`Location Description` <- dat$`Location Description` %>%
-  fct_infreq() %>% 
-  fct_rev()
-
-plot_factors(dat, "Location Description")
-```
-Even after this removal of categories, after some exploration we found that inclusion in the model led to an inability for the model to converge, and so we remove this from our final analysis.
-
-### District
-
-```{r}
-
-district_map <- get_map(map = "district")
-
-plot_heat_map_d(district_map,"District")
-```
-
-This district is made up of multiple different areas, as can be seen in the geographical plots. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
-
-```{r}
-# Reordering factor levels (for plots and analysis purposes)
-dat$District <- dat$District %>%
-  fct_infreq() %>%
-  fct_rev()
-
-plot_factors(dat, "District")
+dat <- df_2019
 ```
 
 
-```{r}
-# Removing district 31 from analysis
+As well as the data pre-processing described earlier in the report, we also manipulate the date variable for our purposes.
 
-dat <- dat %>%
-  filter(!(District == "031")) %>%
-  mutate(District = fct_drop(District))
-```
-
-
-In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. ^[Source: http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts]
-
-
-```{r}
-# Adding area groupings
-area1 <- c("002","003","008","009","007")
-area2 <- c("004","005","006","022")
-area3 <- c("001","012","018","019","020","024")
-area4 <- c("010","011","015")
-area5 <- c("014","016","017","025")
-
-dat <- dat %>%
-  mutate(`District Area` = fct_collapse(District,
-                                        "AREA 1" = area1,
-                                        "AREA 2" = area2, 
-                                        "AREA 3" = area3, 
-                                        "AREA 4" = area4, 
-                                        "AREA 5" = area5),
-         `District Area` = fct_relevel(`District Area`, sort))
-  
-```
-
-
-```{r}
-district_map$Area <- fct_collapse(as.factor(district_map$District),
-                                  "AREA 1" = as.character(as.integer(area1)),
-                                  "AREA 2" = as.character(as.integer(area2)),
-                                  "AREA 3" = as.character(as.integer(area3)),
-                                  "AREA 4"= as.character(as.integer(area4)),
-                                  "AREA 5" = as.character(as.integer(area5))) %>%
-  fct_relevel(sort) %>%
-  fct_relevel("31", after = Inf)
-
-#Plot for just area
-area_plot <- plot_heat_map_d(district_map,"Area")
-area_plot
-```
-
-```{r}
-# Get district labels and locations
-district_labels <- sort(as.integer(district_map$District))
-district_markers <- district_map %>%
-  dplyr::arrange(as.integer(District)) %>%
-  sf::st_centroid() %>%
-  sf::st_coordinates() %>%
-  as_tibble() %>%
-  dplyr::mutate(district_labels = district_labels)
-
-# Plot with district labels and coloured area: labels for 31 are a bit vom
-area_plot_markers <- area_plot +
-  geom_sf_label(data = district_map, aes(label = dist_num)) +
-  theme_void()
-
-area_plot_markers
-```
-
-
-```{r}
-# Plot showing number of crimes in each district area
-plot_factors(dat, "District Area")
-```
-
-### Time and Date
+## Time and Date
 
 In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model.
 
@@ -653,3 +676,310 @@ dat <- dat %>%
          `Time of Day` = tod) %>%
   select(-Date)
 ```
+
+
+## Multinomial Logistic Regression
+
+We use the `multinom()` function from the `nnet` package in order to implement multinomial logistic regression. We calculate various model performance metrics using the `confusionMatrix()` function from the `caret` package. Namely we focus here on calculating overall accuracy and no-information rate (NIR), as well as class specific sensitivity, specification and accuracy values. We implement 5-fold repeated cross validation, with $n = 5$ repeats, and calculate the average of each metric across all folds for each repeat.
+
+```{r}
+#setting seed for reproducibility
+set.seed(200899)
+metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
+```
+
+### Predicting Crime Type
+
+We begin by splitting our data into our response variable and the variables we want to include in our models. We look at three potential models:
+1. No Location: Primary Type ~ Arrest + Domestic + Day + Time
+2. District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
+3. District: Primary Type ~ Arrest + Domestic + Day + Time + District
+
+```{r}
+# Splitting response data and different model variable sets
+y <- dat$`Primary Type`
+X_noloc <- dat %>% select(c(Arrest, Domestic, Day, Time))
+X_area <- dat %>% select(c(Arrest, Domestic, Day, Time, `District Area`))
+X_district <- dat %>% select(c(Arrest, Domestic, Day, Time, District))
+```
+
+We evaluate the model performance using the `mnlr_kfold_cv.df()` function, which outputs a data frame containing the metrics as evaluated for the model fitted on each fold for each repeat. Our package also contains the `mnlr_kfold_cv.list()` function, which performs the same operations and outputs a list based format of our values, as well as their averages. We use the data frame function for our analysis, however, as its output can be easily manipulated to calculate averages, investigate metric distributions. Further, the data frame outputs can be easily converted into an easy to read table, ideal for producing result documentation, which the list output cannot.
+
+```{r, eval=FALSE}
+mnlr_results_noloc.df <- mnlr_kfold_cv.df(X = X_noloc, y = y, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r, eval = FALSE}
+mnlr_results_area.df <- mnlr_kfold_cv.df(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r, eval=FALSE}
+mnlr_results_district.df <- mnlr_kfold_cv.df(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r, include = FALSE}
+load("chicri/temp_data/mnlr_results_noloc_df.RData")
+load("chicri/temp_data/mnlr_results_area_df.RData")
+load("chicri/temp_data/mnlr_results_district_df.RData")
+```
+
+We then create tables of our results, using the `mean_report_metrics()` function, and then for the class means we also average over the repeats.
+
+```{r}
+noloc_class_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "class")
+noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "overall")
+```
+
+```{r}
+noloc_avg_class_means <- noloc_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+We use the `knitr::kable()` functionality, as well as the `kableExtra` package, to export our results into a format suitable for our report: namely, a latex table. This is contained within the `read_table()` function.
+
+```{r}
+noloc_kab <- report_table(noloc_overall_means, rep("c",4))
+noloc_kab
+```
+
+```{r}
+noloc_kab_class <- report_table(noloc_avg_class_means, c("l",rep("c",3)))
+noloc_kab_class
+```
+
+We repeat this process for each of our 3 models.
+
+```{r}
+area_class_means <- mean_repeat_metrics(mnlr_results_area.df, type = "class")
+area_overall_means <- mean_repeat_metrics(mnlr_results_area.df, type = "overall")
+```
+
+```{r}
+area_avg_class_means <- area_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+```{r}
+area_kab <- report_table(area_overall_means, rep("c",4))
+area_kab
+```
+
+```{r}
+area_kab_class <- report_table(area_avg_class_means,c("l",rep("c",3)))
+area_kab_class
+```
+
+```{r}
+district_class_means <- mean_repeat_metrics(mnlr_results_district.df, type = "class")
+district_overall_means <- mean_repeat_metrics(mnlr_results_district.df, type = "overall")
+```
+
+```{r}
+district_avg_class_means <- district_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+```{r}
+district_kab <- report_table(district_overall_means, rep("c",4))
+district_kab
+```
+
+```{r}
+district_kab_class <- report_table(district_avg_class_means, c("l",rep("c",3)))
+district_kab_class
+```
+
+We observe that, whilst there is a progressive increase in the overall accuracy of the models, the increase from using `District Area` to using `District` is very marginal. As such, we prefer to use the model which includes location as `District Area` as this balances accuracy with computational cost.
+
+Next, we perform further analysis on our chosen model. We refit our model using a training data set, using an 80-20 split of training to test data.
+
+```{r, eval=FALSE}
+set.seed(1)
+ind <- sample(2,nrow(dat),replace=TRUE, prob = c(0.8,0.2))
+index <- which(ind == 2)
+mnlr <- mnlr_cv_indexed(X_area,y,index,return_model = TRUE)
+```
+
+```{r, include=FALSE}
+load("chicri/temp_data/mnlr_area_model.RData")
+```
+We can look at a subset of the predictive probabilities produced by the model, as well as the coefficient values, in order to interpret the relationships between our observed variables and the log odds of a particular class. We can also extract data from our `confusionMatrix` object to produce a confusion matrix plot, which shows the frequency of various prediction and reference combinations.
+
+BEEP might not want to print these as it is large BEEP
+```{r}
+head(pp <- fitted(mnlr$model)) # Predictive probabilities
+```
+
+```{r}
+coef(mnlr$model) # Coefficients
+```
+
+```{r}
+# Extract confusion matrix for plot
+tab <- mnlr$conf.matrix$table
+confusion_df <- as.data.frame(tab)
+
+confusion_plot <- ggplot(confusion_df, aes(x=Reference, y = Prediction, fill=Freq)) +
+  coord_equal() +
+  geom_tile() +
+  labs(title = "Prediction distribution") +
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
+  geom_text(aes(label=Freq), color="black") # printing values
+confusion_plot
+```
+
+## Predicting Time of Crime
+
+As an extension to this multiclass classification task, we will also evaluate the performance of another multinomial regression classifier used to predict the time of day at which a crime occurred. We use the same methods as seen previously but now time of day is response variable and we exclude Time from our model. This gives us the three models:
+1. No Location: Time of Day ~ Primary Type + Arrest + Domestic + Day
+2. District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
+3. District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
+
+We repeat the exact steps as when we considered the `Primary Type` response variable. We observed here that, when fitting our models, convergence occured for the first two models but not for the third. This was in contrast to the models of type, where we saw no examples of convergence.
+
+```{r}
+#setting seed for reproducibility
+set.seed(200899)
+# Splitting response data and different model variable sets
+y_tod <- dat$`Time of Day`
+X_tod_noloc <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day))
+X_tod_area <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,`District Area`))
+X_tod_district <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,District))
+```
+
+```{r, eval=FALSE}
+tod_results_noloc <- mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r, eval = FALSE}
+tod_results_area <- mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r, eval=FALSE}
+tod_results_district <- mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+```
+
+```{r, include = FALSE}
+load("chicri/temp_data/tod_results_noloc.RData")
+load("chicri/temp_data/tod_results_area.RData")
+load("chicri/temp_data/tod_results_district.RData")
+```
+
+```{r}
+tod_noloc_class_means <- mean_repeat_metrics(tod_results_noloc,type="class")
+tod_noloc_overall_means <- mean_repeat_metrics(tod_results_noloc,type="overall")
+```
+
+```{r}
+tod_noloc_avg_class_means <- tod_noloc_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+
+```{r}
+tod_noloc_kab <- report_table(tod_noloc_overall_means, rep("c",4))
+tod_noloc_kab
+```
+
+```{r}
+tod_noloc_kab_class <- report_table(tod_noloc_avg_class_means, c("l",rep("c",3)))
+tod_noloc_kab_class
+```
+
+```{r}
+tod_area_class_means <- mean_repeat_metrics(tod_results_area,type="class")
+
+tod_area_overall_means <- mean_repeat_metrics(tod_results_area,type="overall")
+```
+
+```{r}
+tod_area_avg_class_means <- tod_area_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+
+```{r}
+tod_area_kab <- report_table(tod_area_overall_means, rep("c",4))
+tod_area_kab
+```
+
+```{r}
+tod_area_kab_class <- report_table(tod_area_avg_class_means, c("l",rep("c",3)))
+tod_area_kab_class
+```
+
+
+```{r}
+tod_district_class_means <- mean_repeat_metrics(tod_results_district,type="class")
+
+tod_district_overall_means <- mean_repeat_metrics(tod_results_district,type="overall")
+```
+
+```{r}
+tod_district_avg_class_means <- tod_district_class_means %>%
+  dplyr::summarise("Average Sensitivity" = mean(`Average Sensitivity`),
+                   "Average Specificity" = mean(`Average Specificity`),
+                   "Average Balanced Accuracy" = mean(`Average Balanced Accuracy`))
+```
+
+
+```{r}
+tod_district_kab <- report_table(tod_district_overall_means, rep("c",4))
+tod_district_kab
+```
+
+```{r}
+tod_district_kab_class <- report_table(tod_district_avg_class_means, c("l",rep("c",3)))
+tod_district_kab_class
+```
+
+
+Each of the models have similar overall accuracy across our repeats, so we prefer the simplest model with the fewest variables as this has minimal computational cost to run.
+```{r, eval=FALSE}
+set.seed(1)
+ind <- sample(2,nrow(dat),replace=TRUE, prob = c(0.8,0.2))
+index <- which(ind == 2)
+tod_mnlr <- mnlr_cv_indexed(X_tod_noloc,y_tod,index,return_model = TRUE)
+```
+
+```{r, include=FALSE}
+load("chicri/temp_data/tod_noloc_model.RData")
+```
+
+```{r}
+head(tod_pp <- fitted(tod_mnlr$model)) #Predictive probabilities for each obs
+```
+
+```{r}
+coef(tod_mnlr$model)
+```
+
+```{r}
+# Extract confusion matrix for plot
+tod_tab <- tod_mnlr$conf.matrix$table
+tod_confusion_df <- as.data.frame(tod_tab)
+
+tod_confusion_plot <- ggplot(tod_confusion_df, aes(x=Reference, y = Prediction, fill=Freq)) +
+  coord_equal() +
+  geom_tile() +
+  labs(title = "Prediction distribution") +
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
+  geom_text(aes(label=Freq), color="black") # printing values
+
+tod_confusion_plot
+```
+
+
+
