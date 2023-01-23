@@ -27,7 +27,8 @@ devtools::install_github("codiewood/chicago_crime/chicri")
 ```{r, message = FALSE}
 library(chicri)
 theme_set(theme_minimal())
-cbpal <- c("#000000", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbpal <- c("#000000", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D55E00",
+                    "#CC79A7")
 
 ```
 ## Computational Techniques
@@ -92,8 +93,8 @@ We also drop any missing data.
 ```{r}
 df <- df %>%
   select(-c(ID, `Case Number`, `Updated On`, 
-            `Block`, `Beat`, `Ward`, `X Coordinate`, `Y Coordinate`, `Latitude`, `Longitude`,
-            `IUCR`, `FBI Code`, `Description`)) %>%
+            `Block`, `Beat`, `Ward`, `X Coordinate`, `Y Coordinate`, `Latitude`, 
+            `Longitude`, `IUCR`, `FBI Code`, `Description`)) %>%
   drop_na()
 ```
 
@@ -185,15 +186,15 @@ df_2019$District <- df_2019$District %>%
 plot_factors(df_2019, "District")
 ```
 
-In order to simplify analysis, we exclude the crimes from District 031, 16 and 021, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
 
+We remove District 031 due to inconsistencies in definition, we will see in the plot below that the District Area isn't properly defined, and due to the very low amount of observations we remove it from our analysis.
 
 
 
 ```{r}
 # Removing district 31 from analysis
 
-df <- df %>%
+df_2019 <- df_2019 %>%
   filter(!(District == "031")) %>%
   mutate(District = fct_drop(District))
 ```
@@ -286,11 +287,14 @@ week_count <- week_count %>% filter(Year <= 2019, Year >= 2014)
 week_train <- week_count %>% filter(Year < 2018) 
 week_test <- week_count %>% filter(Year >= 2018)
 
-model_week <- gam(Count ~ s(Week, bs = "cc") + Year, data = week_train, family = "poisson")
+model_week <- gam(Count ~ s(Week, bs = "cc") + Year,
+                  data = week_train, family = "poisson")
 
-week_train <- week_train %>% cbind("Predicted" = model_week$fitted.values, "Data" = "Train")
+week_train <- week_train %>% 
+  cbind("Predicted" = model_week$fitted.values, "Data" = "Train")
 
-week_test <- week_test %>% cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
+week_test <- week_test %>% 
+  cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
 
 
 week_dat <- rbind(week_train, week_test)
@@ -360,7 +364,9 @@ spatial_train <- spatial_count %>% filter(Year < 2018)
 spatial_test <- spatial_count %>% filter(Year >= 2018)
 
 
-spatial_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt), data = spatial_train, family = "poisson")
+spatial_model <- 
+  gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt), 
+      data = spatial_train, family = "poisson")
 
 
 
@@ -414,7 +420,8 @@ library(corrplot)
 socio_ind <- get_indicators()
 
 
-socio_ind %>% select(-`Community Area`) %>% cor() %>% corrplot(method = "square", type = "lower", tl.pos = "l", tl.col = "black")
+socio_ind %>% select(-`Community Area`) %>% cor() %>% 
+  corrplot(method = "square", type = "lower", tl.pos = "l", tl.col = "black")
 ```
 
 We can see that all of these values are highly correlated, and so we only need to include one in an analysis. For this we choose the hardship index as it is made up partly of the other two indicators. We now fit the model with the same method as before:
@@ -424,13 +431,16 @@ spatial_count <- df %>% count_cases(location_level = "community_area") %>%
   rename("CommunityArea" = "Community Area") %>%
   mutate(CommunityArea = as.factor(CommunityArea))
 
-socio_data <- spatial_count %>% left_join(socio_ind, by = c("CommunityArea" = "Community Area")) %>%
+socio_data <- spatial_count %>% left_join(socio_ind, 
+                                          by = c("CommunityArea" = "Community Area")) %>%
   rename(HardshipIndex = `Hardship Index`, `PovertyRate` = `Poverty Rate`)
 
 socio_train <- socio_data %>% filter(Year < 2019) 
 socio_test <- socio_data %>% filter(Year >= 2019)
 
-socio_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt) + HardshipIndex, data = socio_train, family = "poisson")
+socio_model <- 
+  gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt) + 
+        HardshipIndex, data = socio_train, family = "poisson")
 
 summary(socio_model)
 ```
@@ -454,9 +464,8 @@ While including more information might improve our models, during our EDA we fou
 crimes <- df_2019 %>%
   mutate(day = yday(Date), 
          wkday = wday(Date), 
-         Hour = as.numeric(hour(Date) + minute(Date)/60)/24) %>% 
-  filter(!(District == "031")) %>%
-  mutate(District = fct_drop(District))
+         Hour = as.numeric(hour(Date) + minute(Date)/60)/24) 
+
 
 time.data <- crimes %>% 
   mutate(Hour = as.factor(hour(crimes$Date))) %>% 
@@ -652,7 +661,8 @@ $$\text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2}$$
 An interesting benchmark for the usefulness of the model is the No-Information Rate which is the accuracy if we just guess for each data point is the largest proportion class. For the crimes data set that is $0.7828$, however this is not some foolproof benchmark, for example if our goal is to predict to lowest proportion class consistently. 
 
 ```{r}
-blank <- data.frame(Model = as.character(), ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
+blank <- data.frame(Model = as.character(), ACC=numeric(0),SENS = numeric(0),
+                    SPEC = numeric(0), BALACC = numeric(0)) 
 up <- blank
 down <- blank
 logistic <- blank 
@@ -674,16 +684,20 @@ for (testrow in 1:10){
   r <- confusionMatrix(data = predict(object =  svm.model, newdata = sampTest),
                        reference = sampTest$Arrest, positive = 'TRUE')
   
-  up[testrow, ] <- c('UpSVM',u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
+  up[testrow, ] <- 
+    c('UpSVM',u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
                u[["byClass"]][["Specificity"]], u[["byClass"]][["Balanced Accuracy"]])
   
-  down[testrow, ] <- c('DownSVM',d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
+  down[testrow, ] <- 
+    c('DownSVM',d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
                d[["byClass"]][["Specificity"]], d[["byClass"]][["Balanced Accuracy"]])
   
-  logistic[testrow, ] <- c('LogReg',l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
+  logistic[testrow, ] <- 
+    c('LogReg',l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
                l[["byClass"]][["Specificity"]], l[["byClass"]][["Balanced Accuracy"]])
   
-  repSVM[testrow, ] <- c('SVM',r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
+  repSVM[testrow, ] <- 
+    c('SVM',r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
                r[["byClass"]][["Specificity"]], r[["byClass"]][["Balanced Accuracy"]])
 }
 ```
@@ -815,7 +829,8 @@ mnlr_results_area.df <- mnlr_kfold_cv.df(X = X_area, y = y, k = 5, n_reps = 5, m
 ```
 
 ```{r, eval=FALSE}
-mnlr_results_district.df <- mnlr_kfold_cv.df(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
+mnlr_results_district.df <- 
+  mnlr_kfold_cv.df(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 ```{r, include = FALSE}
@@ -948,15 +963,18 @@ X_tod_district <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,District))
 ```
 
 ```{r, eval=FALSE}
-tod_results_noloc <- mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+tod_results_noloc <- 
+  mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 ```{r, eval = FALSE}
-tod_results_area <- mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+tod_results_area <- 
+  mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 ```{r, eval=FALSE}
-tod_results_district <- mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+tod_results_district <- 
+  mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
 
 ```{r, include = FALSE}
