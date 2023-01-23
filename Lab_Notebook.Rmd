@@ -1,8 +1,6 @@
 ---
 title: "Using Regression and Classification Techniques on Chicago Crime Dataset"
 author: "Rahil Morjaria, Codie Wood, Rachel Wood"
-output: pdf_document
-date: "January 2023"
 output: 
   pdf_document:
     keep_tex: yes
@@ -16,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE,
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 devtools::install_github("codiewood/chicago_crime/chicri") 
 
 ```
@@ -59,8 +57,7 @@ In order to ensure that tests and checks were run on a regular basis, continuous
 
 ### Parallel Programming
 
-BEEP rahil did this so should probs talk about it BEEP
-
+We used parallel programming, which allows code to be run across multiple cores, in order to speed up code with long run times. We use the package `doParallel` in order to implement this. In particular, we use parallel programming in the cross-validation for our binary classifiers, allowing faster assessment of model performance, and more models to be assessed in a shorter time frame.
 
 # Exploratory Data Analysis
 Our data can be loaded using the `load_crimes_API()` function from the `chicri` package:
@@ -218,13 +215,12 @@ socio_ind %>% select(-`Community Area`) %>% cor() %>% corrplot(method = "square"
 We can see that all of these values are highly correlated, and so we only need to include one in an analysis. For this we choose the hardship index as it is made up partly of the other two indicators. We now fit the model with the same method as before:
 
 ```{r}
-spatial_count <- df %>% count_cases(location_level = "community_area", date_level = "week") %>%
+spatial_count <- df %>% count_cases(location_level = "community_area") %>%
   rename("CommunityArea" = "Community Area") %>%
   mutate(CommunityArea = as.factor(CommunityArea))
 
 socio_data <- spatial_count %>% left_join(socio_ind, by = c("CommunityArea" = "Community Area")) %>%
-  select(-c(`Poverty Rate`)) %>%
-  rename(HardshipIndex = `Hardship Index`)
+  rename(HardshipIndex = `Hardship Index`, `PovertyRate` = `Poverty Rate`)
 
 socio_train <- socio_data %>% filter(Year < 2019) 
 socio_test <- socio_data %>% filter(Year >= 2019)
@@ -233,8 +229,20 @@ socio_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "m
 
 summary(socio_model)
 ```
-# Binomial Classification
 
+# Binomial Classification
+In this section we attempt to fit a binary classification model, to predict given certain information whether the crime would lead to an arrest or not. Choosing only to use 2019 data, due to scale of the data set (leaving us with roughly 250,000 observations), as data recorded after is affected strongly by COVID. 
+
+The features we choose to include in this model are:
+$$\mathbf{x} = \texttt{(Domestic, Primary Type, Day, Time, Week Day, District})$$
+
+We choose \texttt{Primary Type} over \texttt{FBI Code} to determine the type of crime as during our EDA we found inconsistencies with the classification of \texttt{FBI Code}. With \texttt{Primary Type}, we merge uncommon levels of our factor variable into the level ``OTHER", in which we also include the pre-existing crime type ``OTHER OFFENSE".
+
+For temporal data we include \texttt{Week Day} as a factor variable, encoding date using \texttt{Day} (1-365) and \texttt{Time} as a numeric character between 0-1.
+
+In order to include spatial information, we consider the \texttt{District} variable. We observe that all districts experience reasonable numbers of crimes to be incorporated into analysis, with the exception of District 031. 
+
+While including more information might improve our models, during our EDA we found the inclusion of highly correlated variables to improve the model insignificantly while drastically increasing computational time.
 
 ```{r}
 crimes <- df %>% 
@@ -246,9 +254,11 @@ crimes <- df %>%
          Hour = as.numeric(hour(Date) + minute(Date)/60)/24)
 
 crimes <- crimes %>%
-  mutate(`Primary Type` = othering(`Primary Type`, 1000)) %>%
-  mutate(`Primary Type` = fct_collapse(`Primary Type`, "OTHER" = c("OTHER", "OTHER OFFENSE")))
-  droplevels()
+  mutate(`Primary Type` = othering(`Primary Type`, 1000),
+         `Primary Type` = fct_collapse(`Primary Type`, "OTHER" = c("OTHER", "OTHER OFFENSE"))) %>%
+  mutate() %>%
+  droplevels() %>% 
+  drop_na()
 
 
 
@@ -258,8 +268,200 @@ time.data <- crimes %>%
   dplyr::count(Arrest)
 ```
 
-For some EDA on the importance of including time data in our model for classifying likelihood of arrest, we plot the probability of arrest for each hour (using 2019 data), we see that the proportion of arrests are inconsistent depending on time - this could be due to types of crimes expected at each time. This makes it seem significant to at least include in the model. BEEP
+Here we plot the proportion of crimes that resulted in arrest for depending on the hour of the day. We can see that the likelihood of an Arrest Resulting from a crime might have dependence on the hour the crime was committed this could be due to the nature of the crimes). However, this seems to indicates that it would be worthwhile to include time as a predictor in our binary classification model.
+
 
 
 ```{r}
+library(ggplot2)
+library(cowplot)
+
+arrest_rates <- crimes%>% 
+  mutate(Hour = hour(Date)) %>%
+  dplyr::group_by(Hour) %>%
+  dplyr::summarise(`Total Crimes` = n(), 
+                   Arrests = sum(Arrest), 
+                   `Arrest Prob` = mean(Arrest))
+
+plot1 <- ggplot(arrest_rates) + 
+  geom_point(aes(x =Hour, y = `Arrest Prob`)) + 
+  labs(y = 'Proportion of Arrests', x= 'Hour of Day')
+
+plot2 <- ggplot(arrest_rates) +
+  geom_point(aes(x =Hour, y = Arrests, color = 'Arrests' )) + 
+  geom_point(aes(x =Hour, y = `Total Crimes`, color = 'Total Crimes'))+ 
+  labs(y = 'Crimes', x= 'Hour of Day')+ 
+  scale_color_manual(values = cbpal[c(3,6)]) +
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+plot_grid(plot1, plot2, nrow=2)
 ```
+
+## Logistic Regression
+
+```{r}
+library(caret)
+library(doParallel)
+library(boot)
+library(kernlab)
+set.seed(30700) # Setting seed for reproducibility
+
+crimes <- crimes %>% mutate(Arrest = as.factor(Arrest))
+```
+
+Using the package `doParallel` and `caret` we can easily fit classification models. We define a control method which allows our function to do 5-fold Cross Validation, using `doParallel` to do the cross validation in parallel to decrease computational time. Setting seeds for our cross-validation function to ensure reproducibility. The function will return the model with the highest accuracy, however we can see the accuracy for the other models in the cross validation process.
+
+
+
+```{r message=FALSE, warning=FALSE}
+#Create Seeds for the Cross Validation Function
+seeds <- vector(mode = "list", length = 6)
+for(i in 1:6) seeds[[i]] <- sample.int(n=1000, 3)
+
+#Define Cross Validation Function
+control <- trainControl(method = 'cv', number = 5, allowParallel = TRUE, seeds=seeds)
+
+cl <- makePSOCKcluster(detectCores() - 2)
+
+registerDoParallel(cl)
+
+#Fitting Logistic Regression Classifier
+log.model <- train(Arrest ~ .,
+               data = crimes,
+               trControl = control,
+               method = "glm",
+               family=binomial())
+
+stopCluster(cl)
+```
+
+
+## Support Vector Machine
+
+In this section we fit Support Vector Machines with the Radial Basis Kernel (due to the unclear relationship between our predictors and class).
+
+As SVM models scale badly with data points we have to train our models on samples of our data set (which has greater than $250,000$ data points). We will be fitting 3 SVM models, each using a different sampling technique.
+
+\begin{itemize}
+    \item The first method is to take a proportional sample, which attempts to generate a sample where the proportion of each classes emulates the original data set.
+    \item The next is known as 'Down Sampling' where we randomly sample the majority class till we have the same number of observations as the minority class.
+    \item Similarly we will use the method known as 'Up Sampling', randomly samples (with replacement) the minority class until we have the same number of observations as the majority class.
+\end{itemize}
+
+It is clear than in our data there is a significant imbalance in the class proportions, only $21.7%$ of the data has `Arrest = TRUE`. For our first SVM model, we will take a representative sample of roughly 13,000 data points. The `createDataPartition()` function in `caret` allows us to easily do this.
+
+
+```{r}
+trainIndex <- createDataPartition(crimes$Arrest, p = .05, 
+                                  list = TRUE)
+```
+
+
+Just like with the Logistic Regression Classifier we use the `train` function from `caret` using our previously defined train function - which has the exact same implementation for the SVMs we fit. The `svmRadial` method uses `kernlab::sigest` to determine a good predictor for $\sigma$. It will then test multiple values for Cost and will choose the one which maximizes accuracy. The `train` function will work in this manner for the other 2 models we train as well.
+
+```{r}
+cl <- makePSOCKcluster(detectCores() - 2)
+
+registerDoParallel(cl)
+
+#Fitting SVM Model with a Proportional Sample
+svm.model <- train(Arrest ~ .,
+                   data = crimesTest,
+                   trControl = control,
+                   method = 'svmRadial',
+                   family = binomial(),
+                   allowParallel = TRUE)
+
+stopCluster(cl)
+```
+
+
+As we will be taking a somewhat small sample of our whole data set to train this model on, we will now try a method called down sampling, this a method of sampling a data set in which we take all of the data points from our lowest proportion class, and sample an equal amount of the other proportions of the classes.
+
+First we use the `downSample` function from `caret` this takes a sample of our data set, giving us an equal sample of both `Arrest = TRUE` and `Arrest = FALSE`.
+
+```{r}
+down_sample <- downSample(x = crimes, y = crimes$Arrest)
+down_sample %>% count(Arrest)
+```
+
+We see that the sample involves all the TRUE data points and gives a random sample of our FALSE data points, we can now use the `createDataPartition` function to take a representative sample of `down_sample` (of equal size to our other sample).
+
+```{r}
+trainIndexD <- createDataPartition(down_sample$Arrest, p = nrow(crimesTest)/nrow(down_sample), 
+                                 list = TRUE)
+
+cl <- makePSOCKcluster(detectCores() - 2)
+
+registerDoParallel(cl)
+
+#Training a SVM using down sampling
+svm.modelD <- train(Arrest ~ .,
+                   data = crimesTestD,
+                   trControl = control,
+                   method = 'svmRadial',
+                   family = binomial())
+
+stopCluster(cl)
+```
+
+There is another method of sampling in a similar vein to down sampling, known as up sampling where we sample with replacement the non majority classes until they are of the same length as the majority class in a similar manner with down sampling we will train a model.
+
+```{r}
+up_sample <- upSample(x = crimes, y = crimes$Arrest)
+```
+
+```{r}
+set.seed(1)
+trainIndexU <- createDataPartition(up_sample$Arrest, p = nrow(crimesTest)/nrow(up_sample), 
+                                 list = TRUE)
+
+cl <- makePSOCKcluster(detectCores() - 1)
+
+registerDoParallel(cl)
+
+#Training a SVM using up sampling
+svm.modelU <- train(Arrest ~ .,
+                   data = crimesTestU,
+                   trControl = control,
+                   method = 'svmRadial',
+                   family = binomial())
+
+stopCluster(cl)
+svm.modelU$results[c('Accuracy', 'Kappa')]
+```
+
+## Model Performance
+
+To test the performance of our Models, we will simulate 10 proportional (in respect to number of arrests), testing data sets. For each of these testing sets we will some metrics. The metrics below will be ones measured for each of models.
+
+$$Accuracy = Pr(\hat{Y} = Y)$$
+$$Sensitivity = Pr(\hat{Y} = 1 | Y = 1) = Pr(\text{True Positive})$$
+$$Specificity = Pr(\hat{Y} = 0| Y = 0) = Pr(\text{True Negative})$$
+$$\text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2}$$
+
+An interesting benchmark for the usefulness of the model is the No-Information Rate which is the accuracy if we just guess for each data point is the largest proportion class. For the crimes data set that is $0.7828$, however this is not some foolproof benchmark, for example if our goal is to predict to lowest proportion class consistently. 
+
+
+\textbf{\big REVISIT - Insert code}
+
+We can see that both the proportional SVM Model and Logistic Model performed very similarly, both with high accuracy and specificity, this is to be expected, as both models were trained and tested with far more `FALSE` data points. We can see that with the trade-off being in sensitivity, both performing poorly at distinguishing positive data points. 
+
+Another important point, is that we might have expected the SVM model to perform better than the Logistic Regression Model, due to it's abilities to take into account non-linear relationships; however, we can see they performed very similarly in nearly all aspects, this is probably due to SVM being trained on only $5\%$ of the 2019 data set while our Logistic Model was trained on the full 2019 data set.
+
+As expected up and down sampling had a positive affect on the sensitivity of the model due to the training data involving a larger proportion of `TRUE` values. If we look at the down sampled model, we see that the high sensitivity gives a large trade off with specificity and accuracy (pushing it below the no information rate), this model is far more likely than the other models to give a false positive. This could be due to the down sample involving sampling the `FALSE` data points possibly giving a less informative sample. 
+
+Compared to down sampling, up sampling did not increase the sensitivity as much, but instead found a more balanced trade off with specificity and accuracy - this is interesting given that both models were trained on the same amount of `TRUE` and `FALSE` data points, further analysis would be needed to determine whether this was due to an intrinsic property of the sampling technique or just due to randomness.
+
+The better balanced accuracy of the up and down sampled models, shows that accuracy of the Logistic and proportional models comes heavily from it's lack of sensitivity combined with the imbalanced class proportions, and that depending on what the goal of our models it might be preferable to pick a less overall accurate model.
+
+# Multi-class Classification
+
+```{r, include = FALSE}
+# Clear work environment to reset from previous sections
+rm(list = ls())
+```
+
+In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occurRed, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
+
+Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.

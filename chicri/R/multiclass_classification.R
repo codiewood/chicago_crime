@@ -243,3 +243,15 @@ mean_repeat_metrics <- function(results,type){
     dplyr::arrange(Repeat)
   return(repeat_means)
 }
+
+plot_factors <-  function(data, column, threshold = NULL){
+  p <- ggplot(data) +
+    geom_bar(aes(y = get(column)), colour = "#56B4E9", fill = "#56B4E9", alpha = 0.7) +
+    labs(x = "Count", y = column)
+
+  if (!is.null(threshold)){
+    p <- p + geom_vline(xintercept=threshold, colour="red")
+  }
+
+  return(p)
+}
