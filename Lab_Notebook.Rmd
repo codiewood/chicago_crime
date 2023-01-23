@@ -268,12 +268,13 @@ week_count <- df %>% count_cases(date_level = "week")
 ggplot(data =week_count) +
   geom_point(aes(x= `Week Start`, y = Count), color = "steelblue3", alpha = 0.5)
 ```
-We can see that there is a drop in early 2020 (likely due to the COVID pandemic), and so we only consider data from 2019 or earlier when fitting our model. We then split the data into testing and training sets:
+We can see that there is a drop in early 2020 (likely due to the COVID pandemic), and so we only consider data from 2019 or earlier when fitting our model. We can also see the trend of the data changes at around 2014 so we only use data from this point forward to train our model.
+We then split the data into testing and training sets:
 
 ```{r, warning=FALSE}
 library(mgcv)
 
-week_count <- week_count %>% filter(Year <= 2019, Year >= 2015)
+week_count <- week_count %>% filter(Year <= 2019, Year >= 2014)
 week_train <- week_count %>% filter(Year < 2018) 
 week_test <- week_count %>% filter(Year >= 2018)
 
@@ -301,9 +302,6 @@ While this model looks reasonable, we also perform some model checking. The `dra
 library(gratia)
 library(patchwork)
 library(mgcViz)
-effects <- draw(model_week)
-
-effects
 
 check <- model_week %>% getViz() 
 
@@ -313,6 +311,8 @@ check(check,
       a.hist = list(bins = 10)
       )
 ```
+
+
 
 ## Weekly Predictions in Space
 
@@ -347,12 +347,14 @@ spatial_count <- df %>% count_cases(location_level = "community_area") %>%
 
 
 
-spatial_count <- spatial_count %>% filter(Year <= 2019, Year >= 2015)
+spatial_count <- spatial_count %>% filter(Year <= 2019, Year >= 2014)
 spatial_train <- spatial_count %>% filter(Year < 2018) 
 spatial_test <- spatial_count %>% filter(Year >= 2018)
 
 
 spatial_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "mrf", xt = xt), data = spatial_train, family = "poisson")
+
+
 
 summary(spatial_model)
 
@@ -365,9 +367,31 @@ check(check_spatial,
       )
 ```
 
+We can also visualise the predicted values, true counts and residuals on a map for the first month of the test data:
+
+```{r}
+plot_dat <- spatial_test %>%
+  filter(Year ==2018, Month == 1)
 
 
+plot_dat <- plot_dat %>%
+  cbind("Fitted" = predict(spatial_model,plot_dat, type = "response"))
 
+plot_dat <- plot_dat %>%cbind( "Residuals" = (plot_dat$Count - plot_dat$Fitted) )
+
+plot_dat <- left_join(community_map, plot_dat, by = c("Area" = "CommunityArea"))
+
+true_plot <- plot_heat_map(plot_dat, "Count", trans = "reverse")
+
+fit_plot <- plot_heat_map(plot_dat, "Fitted", trans = "reverse")
+
+res_plot <- plot_heat_map(plot_dat, "Residuals")
+
+grid.arrange(true_plot, fit_plot, res_plot)
+
+```
+
+We can see apart from a few areas the model performs well.
 ### Incorporating Socio-Economic Indicators
 The Chicago Data Portal also contains a dataset with three variables for each community area:
 
@@ -403,6 +427,7 @@ socio_model <- gam(Count ~ s(Month, bs = "cc") + Year + s(CommunityArea, bs = "m
 summary(socio_model)
 ```
 
+We can see this does not contribute meaningfully to the model so we keep the original spatial model
 # Binomial Classification
 In this section we attempt to fit a binary classification model, to predict given certain information whether the crime would lead to an arrest or not. Choosing only to use 2019 data, due to scale of the data set (leaving us with roughly 250,000 observations), as data recorded after is affected strongly by COVID. 
 
@@ -453,7 +478,7 @@ arrest_rates <- crimes %>%
                    `Arrest Prob` = mean(Arrest))
 
 crimes <- crimes %>%
-  select(- Date)
+  select(- c(Date, Year, Location, `Community Area`, Location))
 
 plot1 <- ggplot(arrest_rates) + 
   geom_point(aes(x =Hour, y = `Arrest Prob`)) + 
