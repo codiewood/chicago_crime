@@ -611,8 +611,70 @@ $$\text{Balanced Accuracy} = \frac{Sensitivity + Specificity}{2}$$
 An interesting benchmark for the usefulness of the model is the No-Information Rate which is the accuracy if we just guess for each data point is the largest proportion class. For the crimes data set that is $0.7828$, however this is not some foolproof benchmark, for example if our goal is to predict to lowest proportion class consistently. 
 
 
-\textbf{\big REVISIT - Insert code}
 
+```{r}
+blank <- data.frame(Model = as.character(), ACC=numeric(0),SENS = numeric(0), SPEC = numeric(0), BALACC = numeric(0)) 
+up <- blank
+down <- blank
+logistic <- blank 
+repSVM <- blank
+
+#Creating data frames of our metrics
+for (testrow in 1:10){
+  sampIndex <- createDataPartition(crimes$Arrest, p = .025, 
+                                  list = TRUE)
+  
+  sampTest <- crimes[sampIndex$Resample,]
+  
+  u <- confusionMatrix(data = predict(svm.modelU, newdata = sampTest),
+                       reference = sampTest$Arrest, positive = 'TRUE')
+  d <- confusionMatrix(data = predict(svm.modelD, newdata = sampTest),
+                       reference = sampTest$Arrest, positive = 'TRUE')
+  l <- confusionMatrix(data = predict(log.model, newdata = sampTest),
+                       reference = sampTest$Arrest, positive = 'TRUE')
+  r <- confusionMatrix(data = predict(svm.model, newdata = sampTest),
+                       reference = sampTest$Arrest, positive = 'TRUE')
+  
+  up[testrow, ] <- c('UpSVM',u[["overall"]][["Accuracy"]], u[["byClass"]][["Sensitivity"]],
+               u[["byClass"]][["Specificity"]], u[["byClass"]][["Balanced Accuracy"]])
+  
+  down[testrow, ] <- c('DownSVM',d[["overall"]][["Accuracy"]], d[["byClass"]][["Sensitivity"]],
+               d[["byClass"]][["Specificity"]], d[["byClass"]][["Balanced Accuracy"]])
+  
+  logistic[testrow, ] <- c('LogReg',l[["overall"]][["Accuracy"]], l[["byClass"]][["Sensitivity"]],
+               l[["byClass"]][["Specificity"]], l[["byClass"]][["Balanced Accuracy"]])
+  
+  repSVM[testrow, ] <- c('SVM',r[["overall"]][["Accuracy"]], r[["byClass"]][["Sensitivity"]],
+               r[["byClass"]][["Specificity"]], r[["byClass"]][["Balanced Accuracy"]])
+}
+```
+
+Below we have a table of the mean values of the metrics previously defined for each model.
+
+```{r}
+FullBinTest <- rbind(up,down,logistic,repSVM) %>%  mutate(Model = as.factor(Model), 
+                                                          ACC = as.numeric(ACC), 
+                                                          SENS = as.numeric(SENS), 
+                                                          SPEC = as.numeric(SPEC), 
+                                                          BALACC = as.numeric(BALACC))
+
+FullBinTest %>% group_by(Model) %>% summarise(across(everything(), mean))
+```
+
+```{r}
+ACCPlot <- ggplot(FullBinTest, aes(x = Model, y = ACC)) + geom_boxplot() + 
+  geom_hline(mapping = aes(yintercept = 0.7828), color = 'red') + 
+  labs(title = 'Models and Accuracy', y = 'Accuracy')
+SENSPlot <- ggplot(FullBinTest, aes(x = Model, y = SENS)) + geom_boxplot() +
+  labs(title = 'Models and Sensitivity', y = 'Sensitivity')
+SPECPlot <- ggplot(FullBinTest, aes(x = Model, y = SPEC)) + geom_boxplot() +
+  labs(title = 'Models and Specificity', y = 'Specificity')
+BALACCPlot <- ggplot(FullBinTest, aes(x = Model, y = BALACC)) + geom_boxplot() + 
+  labs(title = 'Models and Balanced Accuracy', y = 'Balanced Accuracy')
+
+plot_grid(ACCPlot,BALACCPlot , nrow=1, greedy = TRUE)
+plot_grid(SPECPlot, SENSPlot, nrow=1, greedy = TRUE)
+```
 We can see that both the proportional SVM Model and Logistic Model performed very similarly, both with high accuracy and specificity, this is to be expected, as both models were trained and tested with far more `FALSE` data points. We can see that with the trade-off being in sensitivity, both performing poorly at distinguishing positive data points. 
 
 Another important point, is that we might have expected the SVM model to perform better than the Logistic Regression Model, due to it's abilities to take into account non-linear relationships; however, we can see they performed very similarly in nearly all aspects, this is probably due to SVM being trained on only $5\%$ of the 2019 data set while our Logistic Model was trained on the full 2019 data set.
