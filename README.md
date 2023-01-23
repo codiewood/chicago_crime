@@ -31,37 +31,6 @@ data from the year 2019:
 
 ``` r
 library(chicri)
-#> Loading required package: caret
-#> Loading required package: ggplot2
-#> Loading required package: lattice
-#> Loading required package: dplyr
-#> 
-#> Attaching package: 'dplyr'
-#> The following objects are masked from 'package:stats':
-#> 
-#>     filter, lag
-#> The following objects are masked from 'package:base':
-#> 
-#>     intersect, setdiff, setequal, union
-#> Loading required package: forcats
-#> Loading required package: lubridate
-#> Loading required package: timechange
-#> 
-#> Attaching package: 'lubridate'
-#> The following objects are masked from 'package:base':
-#> 
-#>     date, intersect, setdiff, union
-#> Loading required package: magrittr
-#> Loading required package: readr
-#> Loading required package: ROCit
-#> Loading required package: sf
-#> Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-#> Loading required package: tidyr
-#> 
-#> Attaching package: 'tidyr'
-#> The following object is masked from 'package:magrittr':
-#> 
-#>     extract
 data <- load_crimes_API(year="2019")
 ```
 
