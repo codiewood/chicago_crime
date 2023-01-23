@@ -25,6 +25,7 @@ jobs:
         with:
           extra-packages: any::covr
           needs: coverage
+          working-directory: ./chicri
 
       - name: Test coverage
         run: |
