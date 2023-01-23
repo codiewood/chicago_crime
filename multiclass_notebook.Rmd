@@ -416,7 +416,7 @@ As an extension to this multiclass classification task, we will also evaluate th
 2. District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
 3. District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
 
-We repeat the exact steps as when we considered the `Primary Type` response variable.
+We repeat the exact steps as when we considered the `Primary Type` response variable. We observed here that, when fitting our models, convergence occured for the first two models but not for the third. This was in contrast to the models of type, where we saw no examples of convergence.
 
 ```{r}
 #setting seed for reproducibility
@@ -428,21 +428,17 @@ X_tod_area <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,`District Area
 X_tod_district <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,District))
 ```
 
-BEEP this has 60 variables and converges (but other models none converged) BEEP
 ```{r, eval=FALSE}
 tod_results_noloc <- mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
 
-BEEP this has 72 variables and converges BEEP
 ```{r, eval = FALSE}
 tod_results_area <- mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
 
-BEEP this has 123 variables BEEP
 ```{r, eval=FALSE}
 tod_results_district <- mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
 ```
-BEEP need to run the above and save then find best and do plots as before BEEP
 
 ```{r, include = FALSE}
 load("chicri/temp_data/tod_results_noloc.RData")
