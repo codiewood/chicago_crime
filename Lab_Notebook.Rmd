@@ -73,7 +73,7 @@ df %>% head()
 
 ```{r, include = FALSE}
 
-df <- read_csv("C:/Users/Rahil/OneDrive/Documents/ProjectSC1/data_raw.csv", show_col_types = FALSE) %>%
+df <- read_csv("~/Desktop/project/data_raw.csv", show_col_types = FALSE) %>%
   mutate(Date = parse_datetime(Date, format = "%m/%d/%Y %I:%M:%S %p"))
 df <- df %>%
   mutate_if(is.character, as.factor)
@@ -168,7 +168,7 @@ plot_factors(df_2019, "Location Description")
 Even after this removal of categories, after some exploration we found that inclusion in the models led to an inability for the model to converge, and so we remove this from our final analysis.
 
 ### District
-The following plots show a map of the district bounds and the distribution of crimes among districts
+The following plots show a map of the district bounds and the distribution of crimes among districts.
 
 ```{r}
 
@@ -382,7 +382,7 @@ check(check_spatial,
       )
 ```
 
-We can also visualise the predicted values, true counts and residuals on a map for the first month of the test data:
+We can also visualise the residuals on a map for the first month of the test data:
 
 ```{r}
 plot_dat <- spatial_test %>%
@@ -396,17 +396,14 @@ plot_dat <- plot_dat %>%cbind( "Residuals" = (plot_dat$Count - plot_dat$Fitted) 
 
 plot_dat <- left_join(community_map, plot_dat, by = c("Area" = "CommunityArea"))
 
-true_plot <- plot_heat_map(plot_dat, "Count", trans = "reverse")
+res_plot <- plot_heat_map(plot_dat, "Residuals", trans = "reverse")
 
-fit_plot <- plot_heat_map(plot_dat, "Fitted", trans = "reverse")
-
-res_plot <- plot_heat_map(plot_dat, "Residuals")
-
-gridExtra::grid.arrange(true_plot, fit_plot, res_plot)
+res_plot + 
+  geom_sf_label(data = plot_dat, aes(label = Area), label.padding = unit(0.15,"lines"))
 
 ```
 
-We can see apart from a few areas the model performs well.
+We can see the model significantly underestimates counts in areas 7, 8 and 32, and over estimates the counts in area 25. However overall the model performs well.
 
 ### Incorporating Socio-Economic Indicators
 
@@ -448,7 +445,7 @@ socio_model <-
 summary(socio_model)
 ```
 
-We can see this does not contribute meaningfully to the model so we keep the original spatial model
+We can see this does not contribute meaningfully to the model so we keep the original model considering only the community area shape files and month.
 
 # Binary Classification
 
@@ -945,7 +942,7 @@ load("chicri/temp_data/mnlr_area_model.RData")
 We can look at a subset of the predictive probabilities produced by the model, as well as the coefficient values, in order to interpret the relationships between our observed variables and the log odds of a particular class. We can also extract data from our `confusionMatrix` object to produce a confusion matrix plot, which shows the frequency of various prediction and reference combinations.
 
 
-```{r}
+```{r, out.width= '80%'}
 # Extract confusion matrix for plot
 tab <- mnlr$conf.matrix$table
 confusion_df <- as.data.frame(tab)
@@ -954,9 +951,9 @@ confusion_plot <- ggplot(confusion_df, aes(x=Reference, y = Prediction, fill=Fre
   coord_equal() +
   geom_tile() +
   labs(title = "Prediction distribution") +
+  scale_fill_viridis_c(option = "plasma", begin = 0.2) +
   scale_y_discrete(limits = rev) +
-  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
-  geom_text(aes(label=Freq), color="black") # printing values
+  scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) 
 confusion_plot
 ```
 
@@ -1104,6 +1101,7 @@ tod_confusion_plot <- ggplot(tod_confusion_df, aes(x=Reference,
                                                    y = Prediction, fill=Freq)) +
   coord_equal() +
   geom_tile() +
+  scale_fill_viridis_c(option = "plasma", begin = 0.2) +
   labs(title = "Prediction distribution") +
   scale_y_discrete(limits = rev) +
   scale_x_discrete(expand = expansion(mult = c(0,0)), guide = guide_axis(angle = 45)) +
