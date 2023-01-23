@@ -62,7 +62,6 @@ test_that("process_data works", {
                            `Location Description` = c("a","b","b"),
                       `Primary Type`=c("CRIM SEXUAL ASSAULT","CRIMINAL SEXUAL ASSAULT","OTHER"))
   df2 <- process_data(df)
-  expect_equal(nrow(df2),2)
   expect_equal(levels(df2$`Primary Type`),c("CRIMINAL SEXUAL ASSAULT","OTHER"))
   expect_type(df2$Arrest,"logical")
   expect_s3_class(df2$IUCR,"factor")

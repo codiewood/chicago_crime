@@ -2,29 +2,11 @@
 #' @importFrom nnet multinom
 #' @import ggplot2
 #' @importFrom caret confusionMatrix
-#' @importFrom stats pnorm predict
 #' @import magrittr
 #' @import forcats
 #' @import dplyr
 #' @importFrom rlang := .data
 NULL
-
-#' Significance test for features
-#'
-#' @description
-#' Tests if features are significant in a multinomial logistic regression model using 2 tail z tests
-#'
-#' @param model a multinomial logistic regression model
-#' @param alpha numeric significance level
-#'
-#' @return list containing z statistics, p values and indicators of significance.
-#' @export
-significance_test <- function(model,alpha = 0.05){
-  z <- summary(model)$coefficients/summary(model)$standard.errors
-  p <- (1 - stats::pnorm(abs(z), 0, 1)) * 2
-  sig <- colSums(p < alpha) != 0
-  return(list(zstat = z,pvals = p, significant_features = sig))
-}
 
 #' Relevels the `Location Description` factor variable by grouping categories and otherising
 #'
