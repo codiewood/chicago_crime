@@ -2,29 +2,11 @@
 #' @importFrom nnet multinom
 #' @import ggplot2
 #' @importFrom caret confusionMatrix
-#' @importFrom stats pnorm predict
 #' @import magrittr
 #' @import forcats
 #' @import dplyr
 #' @importFrom rlang := .data
 NULL
-
-#' Significance test for features
-#'
-#' @description
-#' Tests if features are significant in a multinomial logistic regression model using 2 tail z tests
-#'
-#' @param model a multinomial logistic regression model
-#' @param alpha numeric significance level
-#'
-#' @return list containing z statistics, p values and indicators of significance.
-#' @export
-significance_test <- function(model,alpha = 0.05){
-  z <- summary(model)$coefficients/summary(model)$standard.errors
-  p <- (1 - stats::pnorm(abs(z), 0, 1)) * 2
-  sig <- colSums(p < alpha) != 0
-  return(list(zstat = z,pvals = p, significant_features = sig))
-}
 
 #' Relevels the `Location Description` factor variable by grouping categories and otherising
 #'
@@ -33,7 +15,7 @@ significance_test <- function(model,alpha = 0.05){
 #'
 #' @return Data frame with modified factor
 #' @export
-regroup_locations <- function(data, threshold){
+regroup_locations <- function(data, threshold){ # nocov start
   locations <- levels(data$`Location Description`)
   school <- locations[grepl("SCHOOL", locations)]
   airport <- locations[grepl("AIRPORT", locations)]
@@ -46,7 +28,7 @@ regroup_locations <- function(data, threshold){
                                               "OTHER" = c("OTHER", "OTHER (SPECIFY)"))
   data$`Location Description` <- othering(data$`Location Description`, threshold)
   return(data)
-}
+} # nocov end
 
 #' Indexed cross-validation for multinomial regression
 #'
@@ -94,7 +76,7 @@ mnlr_cv_indexed <- function(X, y, index, return_model = FALSE){
 #'
 #' @return List containing two elements: a list of length equal to that of `metrics` + 3, with each element containing a list or vector of the mean of the metric at each repeat, averaged over `k` folds, and a list of length equal to `n_reps`, containing the metrics for each of the `k` folds.
 #' @export
-mnlr_kfold_cv.list <- function(X, y, k, n_reps = 5, metrics) {
+mnlr_kfold_cv.list <- function(X, y, k, n_reps = 5, metrics) { # nocov start
   n <- nrow(X)
   m <- length(metrics)
   metric_list <- list()
@@ -159,7 +141,7 @@ mnlr_kfold_cv.list <- function(X, y, k, n_reps = 5, metrics) {
   }
   names(mean_metrics) <- c("Overall Accuracy", "NIR", "P-value (Acc > NIR)",metrics)
   return(list(mean_metrics = mean_metrics, all_metrics = metric_list))
-}
+} # nocov end
 
 #' K-fold cross-validation metrics for multinomial regression, in data frame format.
 #'
@@ -243,3 +225,4 @@ mean_repeat_metrics <- function(results,type){
     dplyr::arrange(Repeat)
   return(repeat_means)
 }
+

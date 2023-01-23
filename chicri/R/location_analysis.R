@@ -15,12 +15,12 @@ NULL
 #' @import ggplot2 sf
 #'
 #' @export
-plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){
+plot_heat_map <- function(data, variable, legend.title = variable ,trans = "identity"){ # nocov start
    p <- ggplot() +
     geom_sf(data = data, aes(fill = get(variable))) +
     scale_fill_viridis_c(name = legend.title,option = "plasma", trans = trans) +
     theme_void()
-   return(p)
+   return(p) # nocov end
 }
 
 #' Producing a heatmap based on a discrete variable
@@ -34,11 +34,11 @@ plot_heat_map <- function(data, variable, legend.title = variable ,trans = "iden
 #' @import ggplot2 sf
 #'
 #' @export
-plot_heat_map_d <- function(data, variable, legend.title = variable){
+plot_heat_map_d <- function(data, variable, legend.title = variable){ # nocov start
   p <- ggplot() +
     geom_sf(data = data, aes(fill = as.factor(get(variable)))) +
     scale_fill_viridis_d(name = legend.title,option = "plasma") +
     theme_void()
   return(p)
-}
+} # nocov end
 

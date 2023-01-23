@@ -4,6 +4,7 @@
 # chicri
 
 <!-- badges: start -->
+
 [![R-CMD-check](https://github.com/codiewood/chicago_crime/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/codiewood/chicago_crime/actions/workflows/check-standard.yaml)
 <!-- badges: end -->
 
@@ -39,15 +40,15 @@ functionality, and investigate the outcome.
 ``` r
 summary(data)
 #>        ID           Case Number             Date                       
-#>  Min.   :   24368   Length:261183      Min.   :2019-01-01 00:00:00.00  
+#>  Min.   :   24368   Length:261187      Min.   :2019-01-01 00:00:00.00  
 #>  1st Qu.:11654490   Class :character   1st Qu.:2019-04-10 13:45:00.00  
-#>  Median :11751960   Mode  :character   Median :2019-07-05 11:00:00.00  
-#>  Mean   :11731142                      Mean   :2019-07-04 03:53:27.14  
-#>  3rd Qu.:11847624                      3rd Qu.:2019-09-27 00:11:00.00  
-#>  Max.   :12956082                      Max.   :2019-12-31 23:55:00.00  
+#>  Median :11751963   Mode  :character   Median :2019-07-05 11:00:00.00  
+#>  Mean   :11731161                      Mean   :2019-07-04 03:53:13.02  
+#>  3rd Qu.:11847628                      3rd Qu.:2019-09-27 00:11:00.00  
+#>  Max.   :12959329                      Max.   :2019-12-31 23:55:00.00  
 #>                                                                        
 #>     Block               IUCR           Primary Type       Description       
-#>  Length:261183      Length:261183      Length:261183      Length:261183     
+#>  Length:261187      Length:261187      Length:261187      Length:261187     
 #>  Class :character   Class :character   Class :character   Class :character  
 #>  Mode  :character   Mode  :character   Mode  :character   Mode  :character  
 #>                                                                             
@@ -55,7 +56,7 @@ summary(data)
 #>                                                                             
 #>                                                                             
 #>  Location Description    Arrest            Domestic              Beat     
-#>  Length:261183        Length:261183      Length:261183      Min.   : 111  
+#>  Length:261187        Length:261187      Length:261187      Min.   : 111  
 #>  Class :character     Class :character   Class :character   1st Qu.: 611  
 #>  Mode  :character     Mode  :character   Mode  :character   Median :1024  
 #>                                                             Mean   :1137  
@@ -63,7 +64,7 @@ summary(data)
 #>                                                             Max.   :2535  
 #>                                                                           
 #>     District          Ward       Community Area    FBI Code        
-#>  Min.   : 1.00   Min.   : 1.00   Min.   : 1.00   Length:261183     
+#>  Min.   : 1.00   Min.   : 1.00   Min.   : 1.00   Length:261187     
 #>  1st Qu.: 6.00   1st Qu.:10.00   1st Qu.:23.00   Class :character  
 #>  Median :10.00   Median :24.00   Median :32.00   Mode  :character  
 #>  Mean   :11.15   Mean   :23.33   Mean   :36.61                     
@@ -77,17 +78,17 @@ summary(data)
 #>  Mean   :1165111   Mean   :1886303   Mean   :2019  
 #>  3rd Qu.:1176561   3rd Qu.:1908243   3rd Qu.:2019  
 #>  Max.   :1205116   Max.   :1951520   Max.   :2019  
-#>  NA's   :2022      NA's   :2022                    
+#>  NA's   :2026      NA's   :2026                    
 #>    Updated On                        Latitude       Longitude     
 #>  Min.   :2019-01-10 15:16:50.00   Min.   :36.62   Min.   :-91.69  
 #>  1st Qu.:2019-04-23 16:22:49.00   1st Qu.:41.77   1st Qu.:-87.71  
 #>  Median :2019-07-20 16:13:10.00   Median :41.86   Median :-87.66  
-#>  Mean   :2019-07-28 20:57:18.75   Mean   :41.84   Mean   :-87.67  
+#>  Mean   :2019-07-28 21:25:23.27   Mean   :41.84   Mean   :-87.67  
 #>  3rd Qu.:2019-10-14 16:14:03.00   3rd Qu.:41.90   3rd Qu.:-87.63  
-#>  Max.   :2023-01-19 15:48:13.00   Max.   :42.02   Max.   :-87.52  
-#>                                   NA's   :2022    NA's   :2022    
+#>  Max.   :2023-01-22 15:50:37.00   Max.   :42.02   Max.   :-87.52  
+#>                                   NA's   :2026    NA's   :2026    
 #>    Location        
-#>  Length:261183     
+#>  Length:261187     
 #>  Class :character  
 #>  Mode  :character  
 #>                    

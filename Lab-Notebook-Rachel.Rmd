@@ -170,7 +170,7 @@ for (i in 1:n){
 We then obtain the necessary count data, again using the `count_cases()` function:
 
 ```{r}
-spatial_counts <- data_API %>% count_cases(location_level = community_area) %>% mutate(community_area = as.factor(community_area))
+spatial_counts <- df %>% count_cases(location_level = "community_area")  #%>% mutate(community_area = as.factor(community_area))
 
 spatial_model <- gam(count ~ s(month, bs = "cc") + year + s(community_area, bs = "mrf", xt = list(polys = community_list)), data = spatial_counts, family = "poisson")
 

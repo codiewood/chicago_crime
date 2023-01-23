@@ -1,7 +1,7 @@
 Type: Package
 Package: chicri
 Title: Chicago Crime Data Analysis
-Version: 0.1.0
+Version: 1.0.0
 Author: Rahil Morjaria, Codie Wood, Rachel Wood
 Maintainer: Codie Wood <codie.wood@bristol.ac.uk>
 Description: Analysis tools for the Chicago crime dataset.
@@ -9,24 +9,24 @@ License: MIT + file LICENSE
 URL: https://github.com/codiewood/chicago_crime/chicri
 BugReports: https://github.com/codiewood/chicago_crime/issues
 Depends: 
+    caret,
     dplyr (>= 1.0.10),
     forcats,
-    lubridate,
-    magrittr
-Imports: 
-    caret,
     ggplot2,
+    lubridate,
+    magrittr,
+    readr,
+    ROCit,
+    sf,
+    tidyr
+Imports: 
     kableExtra,
     knitr,
     nnet,
-    readr,
     rlang,
-    ROCit,
     RSocrata,
-    sf,
     stats,
-    stringr,
-    tidyr
+    stringr
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
