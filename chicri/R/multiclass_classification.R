@@ -33,7 +33,7 @@ significance_test <- function(model,alpha = 0.05){
 #'
 #' @return Data frame with modified factor
 #' @export
-regroup_locations <- function(data, threshold){
+regroup_locations <- function(data, threshold){ # nocov start
   locations <- levels(data$`Location Description`)
   school <- locations[grepl("SCHOOL", locations)]
   airport <- locations[grepl("AIRPORT", locations)]
@@ -42,10 +42,11 @@ regroup_locations <- function(data, threshold){
   data$`Location Description` <- forcats::fct_collapse(data$`Location Description`,
                                               "SCHOOL" = school,
                                               "UNIVERSITY" = uni,
-                                              "AIRPORT" = airport)
+                                              "AIRPORT" = airport,
+                                              "OTHER" = c("OTHER", "OTHER (SPECIFY)"))
   data$`Location Description` <- othering(data$`Location Description`, threshold)
   return(data)
-}
+} # nocov end
 
 #' Indexed cross-validation for multinomial regression
 #'
