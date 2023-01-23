@@ -129,8 +129,6 @@ effects <- draw(model_week)
 
 effects
 
-gam.check(model_week)
-
 check <- model_week %>% getViz() 
 
 check(check,
@@ -138,7 +136,6 @@ check(check,
       a.respoi = list(size = 0.5), 
       a.hist = list(bins = 10)
       )
-
 ```
 
 ## Weekly Predictions in Space
@@ -457,11 +454,202 @@ The better balanced accuracy of the up and down sampled models, shows that accur
 
 # Multi-class Classification
 
-```{r, include = FALSE}
-# Clear work environment to reset from previous sections
-rm(list = ls())
-```
 
-In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occurRed, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
+
+In this section we consider the multi-class classification task of predicting the type of a reported crime, given data on the crime. We also extend this to address the secondary question of if we can predict the time of day at which a crime occurred, given data on the crime. We will focus here on the method of multinomial logistic regression for both of these tasks.
 
 Firstly, we perform feature selection by manual investigation of our variables. We will identify variables to include in our classifier, taking into account both their real world interpretations and computational complexity of the model. We will select several feasible models, and use multiple metrics to assess their performance. We will use repeated $k$-fold cross validation to calculate average values of these metrics across different training sets. We will then compare our models using these averages.
+
+## Feature Selection
+
+Due to the extremely large size of the full data set, it is computationally intensive to train models. As such, we instead train and test the multinomial logistic regression models only on data from 2019:
+
+```{r}
+dat <- df %>% 
+  filter(year(Date) == 2019) %>%
+  select(-c(Latitude, Longitude)) %>%
+  drop_na()
+```
+
+As well as the data pre-processing described earlier in the report, we also perform additional feature selection for this particular task.
+
+### Primary Type
+
+We observe that there are initially 31 crime types as classified in our data set. Of these, 14 types have fewer than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE. This leaves us with a total of 17 levels in our variable, with 7.57% of data values in the OTHER category. The least frequent category is SEX OFFENSE, which has 1310 occurences.
+
+The following plots show the distribution of values among the data before and after the combination of factors. 
+
+
+```{r}
+
+dat$`Primary Type` <- dat$`Primary Type` %>%
+  fct_infreq() %>%
+  fct_rev()
+
+thr <- 1000 # set threshold for othering
+
+plot_factors(dat, "Primary Type", threshold = thr)
+
+```
+
+```{r}
+dat$`Primary Type` <- dat$`Primary Type` %>%
+  fct_recode("OTHER" = "OTHER OFFENSE") %>%
+  othering(thr,print_summary = T) %>%
+  fct_infreq() %>%
+  fct_rev()
+
+plot_factors(dat, "Primary Type")
+
+```
+
+### Location Description
+We also wished to reduce the number of levels for the Location Descriptions in our data set. Initially, we have 156 location descriptions. Of these, 127 have less than 1000 observations. In order to reduce the computational complexity of our model, we merge these uncommon levels of our factor variable into the level OTHER, as well as merging some groups which have similar categories: for example, all descriptions containing the word "airport" were merged into one category. 
+
+```{r}
+# Reordering factor levels (for plots and analysis purposes)
+dat$`Location Description` <- dat$`Location Description` %>%
+  fct_infreq() %>%
+  fct_rev()
+
+plot_factors(dat, "Location Description", thr)
+```
+
+```{r}
+dat <- regroup_locations(dat,thr)
+
+dat$`Location Description` <- dat$`Location Description` %>%
+  fct_infreq() %>% 
+  fct_rev()
+
+plot_factors(dat, "Location Description")
+```
+Even after this removal of categories, after some exploration we found that inclusion in the model led to an inability for the model to converge, and so we remove this from our final analysis.
+
+### District
+
+```{r}
+
+district_map <- get_map(map = "district")
+
+plot_heat_map_d(district_map,"District")
+```
+
+This district is made up of multiple different areas, as can be seen in the geographical plots. In order to simplify analysis, we exclude the 7 crimes from District 031, and simply note that as a result our model will not be suitable for prediction in this district. As such we are left with 22 districts in our analysis.
+
+```{r}
+# Reordering factor levels (for plots and analysis purposes)
+dat$District <- dat$District %>%
+  fct_infreq() %>%
+  fct_rev()
+
+plot_factors(dat, "District")
+```
+
+
+```{r}
+# Removing district 31 from analysis
+
+dat <- dat %>%
+  filter(!(District == "031")) %>%
+  mutate(District = fct_drop(District))
+```
+
+
+In order to reduce the computational complexity of our model, whilst still maintaining location information, we can also consider grouping districts further into policing district areas, of which there are 5. ^[Source: http://oururbantimes.com/district-stations/command-changes-12th-and-14th-chicago-police-department-districts]
+
+
+```{r}
+# Adding area groupings
+area1 <- c("002","003","008","009","007")
+area2 <- c("004","005","006","022")
+area3 <- c("001","012","018","019","020","024")
+area4 <- c("010","011","015")
+area5 <- c("014","016","017","025")
+
+dat <- dat %>%
+  mutate(`District Area` = fct_collapse(District,
+                                        "AREA 1" = area1,
+                                        "AREA 2" = area2, 
+                                        "AREA 3" = area3, 
+                                        "AREA 4" = area4, 
+                                        "AREA 5" = area5),
+         `District Area` = fct_relevel(`District Area`, sort))
+  
+```
+
+
+```{r}
+district_map$Area <- fct_collapse(as.factor(district_map$District),
+                                  "AREA 1" = as.character(as.integer(area1)),
+                                  "AREA 2" = as.character(as.integer(area2)),
+                                  "AREA 3" = as.character(as.integer(area3)),
+                                  "AREA 4"= as.character(as.integer(area4)),
+                                  "AREA 5" = as.character(as.integer(area5))) %>%
+  fct_relevel(sort) %>%
+  fct_relevel("31", after = Inf)
+
+#Plot for just area
+area_plot <- plot_heat_map_d(district_map,"Area")
+area_plot
+```
+
+```{r}
+# Get district labels and locations
+district_labels <- sort(as.integer(district_map$District))
+district_markers <- district_map %>%
+  dplyr::arrange(as.integer(District)) %>%
+  sf::st_centroid() %>%
+  sf::st_coordinates() %>%
+  as_tibble() %>%
+  dplyr::mutate(district_labels = district_labels)
+
+# Plot with district labels and coloured area: labels for 31 are a bit vom
+area_plot_markers <- area_plot +
+  geom_sf_label(data = district_map, aes(label = dist_num)) +
+  theme_void()
+
+area_plot_markers
+```
+
+
+```{r}
+# Plot showing number of crimes in each district area
+plot_factors(dat, "District Area")
+```
+
+### Time and Date
+
+In order to incorporate temporal data, we include the date as the day of the year, `Day`, as well as time of day,`Time`. We standardize both of these variables to take values between 0 and 1. This is to ensure the convergence rate is not slow when we fit our model.
+
+In order to facilitate our second model, which attempts to predict the time of day at which a crime occurs, we also add the variable `Time of Day` which encodes the time as a categorical variable with the following levels:
+* `MORNING`: between 5am and 12 noon
+* `AFTERNOON`: between 12 noon and 5pm
+* `EVENING`: between 5pm and 9pm
+* `NIGHT`: between 9pm and 5am
+
+After this processing, we then remove the `Date` variable.
+
+```{r}
+t <- lubridate::hour(dat$Date) + lubridate::minute(dat$Date)/60
+tod <- rep("NIGHT",length(t))
+for(i in 1:length(t)){
+  if(5 <= t[i] & t[i] < 12){
+    tod[i] <- "MORNING"
+    }
+  else if(12 <= t[i] & t[i] < 17){
+    tod[i] <- "AFTERNOON"
+    }
+  else if(17 <= t[i] & t[i] < 21){
+    tod[i] <- "EVENING"
+    }
+}
+tod <- as.factor(tod)
+
+dat <- dat %>%
+  mutate(dat,
+         Day = yday(dat$Date) / 365,
+         Time = t/24,
+         `Time of Day` = tod) %>%
+  select(-Date)
+```
