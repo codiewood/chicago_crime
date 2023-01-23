@@ -34,8 +34,7 @@ cbpal <- c("#000000", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D5
 ## Computational Techniques
 ### Package Building
 Packages are a key part of producing reproducible R code. They include R functions which can be reused, the documentation that describes how to use them, and sometimes sample data. In the construction of our `chicri` package, we mainly used the `devtools` and `usethis` packages. We followed the guidelines and usage principles detailed in
-[R Packages (Second Edition)]\url{https://r-pkgs.org/}
-BEEP bibliography? BEEP, in order to ensure our package was consistent with widely used conventions.
+[R Packages (Second Edition)]\url{https://r-pkgs.org/}, in order to ensure our package was consistent with widely used conventions.
 
 ### Documentation
 
@@ -69,7 +68,7 @@ Our data can be loaded using the `load_crimes_API()` function from the `chicri` 
 df <- load_crimes_API(year = NULL) %>% 
   process_data()
 
-df%>% head()
+df %>% head()
 ```
 
 ```{r, include = FALSE}
@@ -78,7 +77,7 @@ df <- read_csv("~/Desktop/project/data_raw.csv", show_col_types = FALSE) %>%
   mutate(Date = parse_datetime(Date, format = "%m/%d/%Y %I:%M:%S %p"))
 df <- df %>%
   mutate_if(is.character, as.factor)
-df%>% head()
+df %>% head()
 ```
 
 
@@ -169,7 +168,7 @@ plot_factors(df_2019, "Location Description")
 Even after this removal of categories, after some exploration we found that inclusion in the models led to an inability for the model to converge, and so we remove this from our final analysis.
 
 ### District
-The following plots show a map of the district bounds and the distribution of crimes among districts
+The following plots show a map of the district bounds and the distribution of crimes among districts.
 
 ```{r}
 
@@ -294,7 +293,8 @@ week_train <- week_train %>%
   cbind("Predicted" = model_week$fitted.values, "Data" = "Train")
 
 week_test <- week_test %>% 
-  cbind("Predicted" = as.numeric(predict(model_week, week_test, type = "response")), "Data" = "Test")
+  cbind("Predicted" = as.numeric(predict(model_week, week_test,
+                                         type = "response")), "Data" = "Test")
 
 
 week_dat <- rbind(week_train, week_test)
@@ -338,7 +338,8 @@ library(chicri)
 community_map <- get_map() %>%
   mutate(Area = as.factor(Area))
 
-community_list <- setNames(as.list(community_map$the_geom), as.character(community_map$Area))
+community_list <- setNames(as.list(community_map$the_geom),
+                           as.character(community_map$Area))
 
 n <- nrow(community_map)
 for (i in 1:n){
@@ -402,9 +403,10 @@ res_plot +
 
 ```
 
-We can see the model significantly underestimates counts in areas 7, 8 and 32, and over estimates the counts in area 25. However overall the model performs well
+We can see the model significantly underestimates counts in areas 7, 8 and 32, and over estimates the counts in area 25. However overall the model performs well.
 
 ### Incorporating Socio-Economic Indicators
+
 The Chicago Data Portal also contains a dataset with three variables for each community area:
 
 - `percent_households_below_poverty`: Percentage of households living the federal poverty line
@@ -445,13 +447,14 @@ summary(socio_model)
 
 We can see this does not contribute meaningfully to the model so we keep the original model considering only the community area shape files and month.
 
-# Binomial Classification
+# Binary Classification
+
 In this section we attempt to fit a binary classification model, to predict given certain information whether the crime would lead to an arrest or not. Choosing only to use 2019 data, due to scale of the data set (leaving us with roughly 250,000 observations), as data recorded after is affected strongly by COVID. 
 
 The features we choose to include in this model are:
 $$\mathbf{x} = \texttt{(Domestic, Primary Type, Day, Time, Week Day, District})$$
 
-We choose \texttt{Primary Type} over \texttt{FBI Code} to determine the type of crime as during our EDA we found inconsistencies with the classification of \texttt{FBI Code}. With \texttt{Primary Type}, we merge uncommon levels of our factor variable into the level ``OTHER", in which we also include the pre-existing crime type ``OTHER OFFENSE".
+We choose \texttt{Primary Type} over \texttt{FBI Code} to determine the type of crime as during our EDA we found inconsistencies with the classification of \texttt{FBI Code}. With \texttt{Primary Type}, we merge uncommon levels of our factor variable into the level OTHER, in which we also include the pre-existing crime type OTHER OFFENSE.
 
 For temporal data we include \texttt{Week Day} as a factor variable, encoding date using \texttt{Day} (1-365) and \texttt{Time} as a numeric character between 0-1.
 
@@ -494,7 +497,8 @@ arrest_rates <- crimes %>%
                    `Arrest Prob` = mean(Arrest))
 
 crimes <- crimes %>%
-  select(- c(Date,  'X Coordinate','Y Coordinate','District Area', 'Location Description'))
+  select(- c(Date,  'X Coordinate','Y Coordinate','District Area',
+             'Location Description'))
 
 plot1 <- ggplot(arrest_rates) + 
   geom_point(aes(x =Hour, y = `Arrest Prob`)) + 
@@ -532,7 +536,8 @@ seeds <- vector(mode = "list", length = 6)
 for(i in 1:6) seeds[[i]] <- sample.int(n=1000, 3)
 
 #Define Cross Validation Function
-control <- trainControl(method = 'cv', number = 5, allowParallel = TRUE, seeds=seeds)
+control <- trainControl(method = 'cv', number = 5, allowParallel = TRUE,
+                        seeds=seeds)
 
 cl <- makePSOCKcluster(detectCores() - 1)
 
@@ -805,6 +810,7 @@ metrics <- c("Sensitivity", "Specificity", "Balanced Accuracy")
 ### Predicting Crime Type
 
 We begin by splitting our data into our response variable and the variables we want to include in our models. We look at three potential models:
+
 1. No Location: Primary Type ~ Arrest + Domestic + Day + Time
 2. District Area: Primary Type ~ Arrest + Domestic + Day + Time + District Area
 3. District: Primary Type ~ Arrest + Domestic + Day + Time + District
@@ -820,16 +826,19 @@ X_district <- dat %>% select(c(Arrest, Domestic, Day, Time, District))
 We evaluate the model performance using the `mnlr_kfold_cv.df()` function, which outputs a data frame containing the metrics as evaluated for the model fitted on each fold for each repeat. Our package also contains the `mnlr_kfold_cv.list()` function, which performs the same operations and outputs a list based format of our values, as well as their averages. We use the data frame function for our analysis, however, as its output can be easily manipulated to calculate averages, investigate metric distributions. Further, the data frame outputs can be easily converted into an easy to read table, ideal for producing result documentation, which the list output cannot.
 
 ```{r, eval=FALSE}
-mnlr_results_noloc.df <- mnlr_kfold_cv.df(X = X_noloc, y = y, k = 5, n_reps = 5, metrics = metrics)
+mnlr_results_noloc.df <- mnlr_kfold_cv.df(X = X_noloc, y = y, k = 5,
+                                          n_reps = 5, metrics = metrics)
 ```
 
 ```{r, eval = FALSE}
-mnlr_results_area.df <- mnlr_kfold_cv.df(X = X_area, y = y, k = 5, n_reps = 5, metrics = metrics)
+mnlr_results_area.df <- mnlr_kfold_cv.df(X = X_area, y = y, k = 5,
+                                         n_reps = 5, metrics = metrics)
 ```
 
 ```{r, eval=FALSE}
 mnlr_results_district.df <- 
-  mnlr_kfold_cv.df(X = X_district, y = y, k = 5, n_reps = 5, metrics = metrics)
+  mnlr_kfold_cv.df(X = X_district, y = y, k = 5,
+                   n_reps = 5, metrics = metrics)
 ```
 
 ```{r, include = FALSE}
@@ -841,8 +850,10 @@ load("chicri/temp_data/mnlr_results_district_df.RData")
 We then create tables of our results, using the `mean_report_metrics()` function, and then for the class means we also average over the repeats.
 
 ```{r}
-noloc_class_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "class")
-noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df, type = "overall")
+noloc_class_means <- mean_repeat_metrics(mnlr_results_noloc.df,
+                                         type = "class")
+noloc_overall_means <- mean_repeat_metrics(mnlr_results_noloc.df,
+                                           type = "overall")
 ```
 
 ```{r}
@@ -867,8 +878,10 @@ noloc_kab_class
 We repeat this process for each of our 3 models.
 
 ```{r}
-area_class_means <- mean_repeat_metrics(mnlr_results_area.df, type = "class")
-area_overall_means <- mean_repeat_metrics(mnlr_results_area.df, type = "overall")
+area_class_means <- mean_repeat_metrics(mnlr_results_area.df,
+                                        type = "class")
+area_overall_means <- mean_repeat_metrics(mnlr_results_area.df,
+                                          type = "overall")
 ```
 
 ```{r}
@@ -889,8 +902,10 @@ area_kab_class
 ```
 
 ```{r}
-district_class_means <- mean_repeat_metrics(mnlr_results_district.df, type = "class")
-district_overall_means <- mean_repeat_metrics(mnlr_results_district.df, type = "overall")
+district_class_means <- mean_repeat_metrics(mnlr_results_district.df,
+                                            type = "class")
+district_overall_means <- mean_repeat_metrics(mnlr_results_district.df,
+                                              type = "overall")
 ```
 
 ```{r}
@@ -945,6 +960,7 @@ confusion_plot
 ## Predicting Time of Crime
 
 As an extension to this multiclass classification task, we will also evaluate the performance of another multinomial regression classifier used to predict the time of day at which a crime occurred. We use the same methods as seen previously but now time of day is response variable and we exclude Time from our model. This gives us the three models:
+
 1. No Location: Time of Day ~ Primary Type + Arrest + Domestic + Day
 2. District: Time of Day ~ Primary Type + Arrest + Domestic + Day + District
 3. District Area: Time of Day ~ Primary Type + Arrest + Domestic + Day + District Area
@@ -963,17 +979,20 @@ X_tod_district <- dat %>% select(c(`Primary Type`,Arrest,Domestic,Day,District))
 
 ```{r, eval=FALSE}
 tod_results_noloc <- 
-  mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+  mnlr_kfold_cv.df(X = X_tod_noloc, y = y_tod, k = 5,
+                   n_reps = 5, metrics = metrics)
 ```
 
 ```{r, eval = FALSE}
 tod_results_area <- 
-  mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+  mnlr_kfold_cv.df(X = X_tod_area, y = y_tod, k = 5,
+                   n_reps = 5, metrics = metrics)
 ```
 
 ```{r, eval=FALSE}
 tod_results_district <- 
-  mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5, n_reps = 5, metrics = metrics)
+  mnlr_kfold_cv.df(X = X_tod_district, y = y_tod, k = 5,
+                   n_reps = 5, metrics = metrics)
 ```
 
 ```{r, include = FALSE}
@@ -983,8 +1002,10 @@ load("chicri/temp_data/tod_results_district.RData")
 ```
 
 ```{r}
-tod_noloc_class_means <- mean_repeat_metrics(tod_results_noloc,type="class")
-tod_noloc_overall_means <- mean_repeat_metrics(tod_results_noloc,type="overall")
+tod_noloc_class_means <- mean_repeat_metrics(tod_results_noloc,
+                                             type="class")
+tod_noloc_overall_means <- mean_repeat_metrics(tod_results_noloc,
+                                               type="overall")
 ```
 
 ```{r}
@@ -1031,9 +1052,11 @@ tod_area_kab_class
 
 
 ```{r}
-tod_district_class_means <- mean_repeat_metrics(tod_results_district,type="class")
+tod_district_class_means <- mean_repeat_metrics(tod_results_district,
+                                                type="class")
 
-tod_district_overall_means <- mean_repeat_metrics(tod_results_district,type="overall")
+tod_district_overall_means <- mean_repeat_metrics(tod_results_district,
+                                                  type="overall")
 ```
 
 ```{r}
@@ -1050,7 +1073,8 @@ tod_district_kab
 ```
 
 ```{r}
-tod_district_kab_class <- report_table(tod_district_avg_class_means, c("l",rep("c",3)))
+tod_district_kab_class <- report_table(tod_district_avg_class_means,
+                                       c("l",rep("c",3)))
 tod_district_kab_class
 ```
 
@@ -1068,13 +1092,13 @@ load("chicri/temp_data/tod_noloc_model.RData")
 ```
 
 
-
 ```{r}
 # Extract confusion matrix for plot
 tod_tab <- tod_mnlr$conf.matrix$table
 tod_confusion_df <- as.data.frame(tod_tab)
 
-tod_confusion_plot <- ggplot(tod_confusion_df, aes(x=Reference, y = Prediction, fill=Freq)) +
+tod_confusion_plot <- ggplot(tod_confusion_df, aes(x=Reference,
+                                                   y = Prediction, fill=Freq)) +
   coord_equal() +
   geom_tile() +
   scale_fill_viridis_c(option = "plasma", begin = 0.2) +
